@@ -1,0 +1,1732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Latent Space Lab · HW2 · Design by Mr. Mony Ratanak</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Clash+Display:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   DESIGN: NOIR CONTROL ROOM
+   Pitch black + electric cyan + warm gold
+   JetBrains Mono precision + Instrument Serif warmth
+   Floating panels, glowing inputs, live terminals
+   ══════════════════════════════════════════════ */
+:root {
+  --void:    #050608;
+  --deep:    #0a0c10;
+  --base:    #0f1117;
+  --panel:   #141720;
+  --raised:  #1c2030;
+  --border:  #232840;
+  --border2: #2e3550;
+  --cyan:    #00e5ff;
+  --cyan2:   #00b8d4;
+  --gold:    #ffc107;
+  --gold2:   #ffab00;
+  --green:   #00e676;
+  --red:     #ff5252;
+  --purple:  #7c4dff;
+  --text:    #e8eaf0;
+  --muted:   #5a6080;
+  --dim:     #3a4060;
+  --m1c:     #00e5ff;
+  --m2c:     #ffc107;
+  --mono:    'JetBrains Mono', monospace;
+  --display: 'Clash Display', sans-serif;
+  --serif:   'Instrument Serif', serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--void);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Animated grid background */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none; z-index: 0;
+}
+
+/* ═══════════════════════════════════
+   LOCK SCREEN (API Key Entry)
+═══════════════════════════════════ */
+#lockScreen {
+  position: fixed; inset: 0; z-index: 1000;
+  background: var(--void);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+  animation: fadeIn .5s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; pointer-events: none; } }
+
+.lock-inner {
+  width: 100%;
+  max-width: 520px;
+  padding: 0 24px;
+  position: relative; z-index: 1;
+}
+.lock-glow {
+  position: absolute;
+  width: 600px; height: 400px;
+  background: radial-gradient(ellipse, rgba(0,229,255,.08) 0%, transparent 65%);
+  top: 50%; left: 50%;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+.lock-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid rgba(0,229,255,.25);
+  background: rgba(0,229,255,.05);
+  color: var(--cyan);
+  font-size: 9px; letter-spacing: .2em; font-weight: 600;
+  padding: 5px 14px; border-radius: 20px;
+  margin-bottom: 28px;
+}
+.lock-badge::before { content: '●'; animation: blink2 2s ease infinite; }
+@keyframes blink2 { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+.lock-title {
+  font-family: var(--display);
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -.03em;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #fff 0%, var(--cyan) 60%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.lock-sub {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 15px;
+  color: var(--muted);
+  margin-bottom: 40px;
+}
+.lock-form {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.lock-form::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+  opacity: .5;
+}
+.lf-label {
+  font-size: 9px; letter-spacing: .18em; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 8px; display: block;
+}
+.lf-input-wrap {
+  position: relative; margin-bottom: 20px;
+}
+.lf-input {
+  width: 100%;
+  background: var(--base);
+  border: 1px solid var(--border2);
+  border-radius: 8px;
+  padding: 14px 50px 14px 16px;
+  font-family: var(--mono); font-size: 12px;
+  color: var(--text); outline: none;
+  transition: border-color .2s, box-shadow .2s;
+  letter-spacing: .02em;
+}
+.lf-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0,229,255,.1), 0 0 20px rgba(0,229,255,.08);
+}
+.lf-input::placeholder { color: var(--muted); }
+.lf-eye {
+  position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+  cursor: pointer; color: var(--muted); font-size: 14px; user-select: none;
+  transition: color .15s;
+}
+.lf-eye:hover { color: var(--cyan); }
+.lf-connect {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, var(--cyan2), var(--cyan));
+  border: none; border-radius: 8px;
+  font-family: var(--display); font-size: 14px; font-weight: 600;
+  color: var(--void); cursor: pointer; letter-spacing: .05em;
+  transition: all .2s;
+  position: relative; overflow: hidden;
+}
+.lf-connect::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(255,255,255,.2), transparent);
+}
+.lf-connect:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,229,255,.3); }
+.lf-connect:active { transform: none; }
+.lf-connect:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.lf-hint {
+  margin-top: 14px; text-align: center;
+  font-size: 10px; color: var(--muted);
+}
+.lf-hint a { color: var(--cyan); text-decoration: none; }
+.lf-error {
+  background: rgba(255,82,82,.1); border: 1px solid rgba(255,82,82,.3);
+  border-radius: 6px; padding: 10px 14px;
+  font-size: 10px; color: var(--red);
+  margin-top: 12px; display: none;
+}
+
+/* ═══════════════════════════════════
+   MAIN APP
+═══════════════════════════════════ */
+#app {
+  display: none;
+  position: relative; z-index: 1;
+  min-height: 100vh;
+}
+
+/* ─── TOP NAV BAR ─── */
+.navbar {
+  position: sticky; top: 0; z-index: 200;
+  background: rgba(10,12,16,.92);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px;
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.nav-logo {
+  font-family: var(--display); font-size: 15px; font-weight: 700;
+  letter-spacing: -.02em; color: var(--text);
+}
+.nav-logo span { color: var(--cyan); }
+.nav-tag {
+  font-size: 8px; letter-spacing: .18em; color: var(--muted);
+  border: 1px solid var(--border2); border-radius: 3px;
+  padding: 2px 7px; text-transform: uppercase;
+}
+.nav-right { display: flex; align-items: center; gap: 12px; }
+.nav-key-display {
+  font-size: 10px; color: var(--muted);
+  background: var(--base); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 12px;
+  display: flex; align-items: center; gap: 7px; cursor: pointer;
+  transition: border-color .15s;
+}
+.nav-key-display:hover { border-color: var(--cyan); }
+.nav-key-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+.nav-status {
+  font-size: 10px; color: var(--muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.ns-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.ns-dot.live { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse2 1.2s ease infinite; }
+@keyframes pulse2 { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ─── MAIN LAYOUT ─── */
+.app-body {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  min-height: calc(100vh - 56px);
+}
+
+/* ─── SIDEBAR ─── */
+.sidebar {
+  background: var(--deep);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  position: sticky; top: 56px; height: calc(100vh - 56px);
+  overflow-y: auto;
+}
+.sidebar::-webkit-scrollbar { width: 3px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--border2); }
+
+.sb-section { padding: 20px 20px 14px; border-bottom: 1px solid var(--border); }
+.sb-section:last-child { border-bottom: none; }
+.sb-label {
+  font-size: 8px; letter-spacing: .2em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 12px;
+}
+
+/* Nav items */
+.nav-items { display: flex; flex-direction: column; gap: 2px; }
+.ni {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 6px; cursor: pointer;
+  font-size: 11px; color: var(--muted);
+  transition: all .15s; border: 1px solid transparent;
+}
+.ni:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.ni.active { color: var(--cyan); background: rgba(0,229,255,.06); border-color: rgba(0,229,255,.15); }
+.ni-num { font-size: 8px; font-weight: 700; color: var(--cyan); opacity: .5; min-width: 16px; }
+.ni.active .ni-num { opacity: 1; }
+.ni-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+
+/* Config fields */
+.cfg-field { margin-bottom: 14px; }
+.cfg-label {
+  font-size: 8px; letter-spacing: .16em; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 6px; display: flex;
+  align-items: center; justify-content: space-between;
+}
+.cfg-val { color: var(--cyan); font-weight: 600; }
+.cfg-input {
+  width: 100%;
+  background: var(--base); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 8px 12px;
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+  outline: none; transition: border-color .15s, box-shadow .15s;
+}
+.cfg-input:focus { border-color: var(--cyan); box-shadow: 0 0 0 2px rgba(0,229,255,.1); }
+.cfg-input::placeholder { color: var(--muted); }
+.cfg-select {
+  width: 100%;
+  background: var(--base); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 8px 30px 8px 12px;
+  font-family: var(--mono); font-size: 10px; color: var(--text);
+  outline: none; cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%235a6080'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  transition: border-color .15s;
+}
+.cfg-select:focus { border-color: var(--cyan); }
+.cfg-select option, .cfg-select optgroup { background: var(--panel); }
+input[type=range] {
+  -webkit-appearance: none; width: 100%; height: 3px;
+  background: var(--border2); border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: var(--cyan);
+  box-shadow: 0 0 8px rgba(0,229,255,.6);
+  transition: transform .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+/* Model badges in sidebar */
+.model-badge {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; background: var(--base);
+  border: 1px solid var(--border2); border-radius: 6px;
+  margin-bottom: 6px; font-size: 9px;
+}
+.mb-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.mb-name { color: var(--text); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mb-tag { font-size: 7px; color: var(--muted); border: 1px solid var(--border2); border-radius: 2px; padding: 1px 5px; }
+
+/* Load btn */
+.load-btn {
+  width: 100%;
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 6px; padding: 8px 12px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  cursor: pointer; transition: all .15s; letter-spacing: .06em;
+}
+.load-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+.load-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* Model count badge */
+.mcount-badge {
+  font-size: 8px; color: var(--cyan);
+  background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.2);
+  border-radius: 10px; padding: 1px 7px; margin-left: 6px;
+}
+
+/* Search input */
+.search-wrap { position: relative; margin-bottom: 10px; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 11px; }
+.search-input {
+  width: 100%; background: var(--base); border: 1px solid var(--border2);
+  border-radius: 6px; padding: 7px 12px 7px 28px;
+  font-family: var(--mono); font-size: 10px; color: var(--text); outline: none;
+  transition: border-color .15s;
+}
+.search-input:focus { border-color: var(--cyan); }
+.search-input::placeholder { color: var(--muted); }
+
+/* Run all button */
+.run-all-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--cyan2), var(--cyan));
+  border: none; border-radius: 8px; padding: 12px;
+  font-family: var(--display); font-size: 13px; font-weight: 600;
+  color: var(--void); cursor: pointer; letter-spacing: .04em;
+  transition: all .2s; position: relative; overflow: hidden;
+}
+.run-all-btn::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg,rgba(255,255,255,.2),transparent); }
+.run-all-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,229,255,.3); }
+.run-all-btn:active { transform: none; }
+.run-all-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+.global-prog { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+.global-bar { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--gold)); border-radius: 2px; transition: width .4s ease; }
+.global-status { font-size: 9px; color: var(--muted); margin-top: 6px; text-align: center; }
+
+/* ─── CONTENT AREA ─── */
+.content { display: flex; flex-direction: column; padding: 28px; gap: 22px; }
+
+/* ─── CARDS ─── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  position: relative;
+  animation: slideUp .4s ease both;
+}
+.card:nth-child(1){animation-delay:.05s}.card:nth-child(2){animation-delay:.1s}
+.card:nth-child(3){animation-delay:.15s}.card:nth-child(4){animation-delay:.2s}
+.card:nth-child(5){animation-delay:.25s}.card:nth-child(6){animation-delay:.3s}
+@keyframes slideUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,229,255,.3), transparent);
+}
+.card-head {
+  padding: 16px 22px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: rgba(255,255,255,.015);
+}
+.card-title-wrap { display: flex; align-items: center; gap: 12px; }
+.card-num {
+  font-family: var(--display); font-size: 8px; font-weight: 700;
+  color: var(--cyan); letter-spacing: .16em;
+  background: rgba(0,229,255,.08); border: 1px solid rgba(0,229,255,.2);
+  padding: 3px 8px; border-radius: 3px; white-space: nowrap;
+}
+.card-title { font-family: var(--display); font-size: 13px; font-weight: 600; letter-spacing: .02em; }
+.card-desc { font-family: var(--serif); font-style: italic; font-size: 11px; color: var(--muted); margin-top: 2px; }
+.card-body { padding: 22px; }
+
+/* ─── ACTION BUTTONS ─── */
+.act-btn {
+  background: transparent; border: 1px solid var(--border2);
+  border-radius: 6px; padding: 7px 16px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  cursor: pointer; transition: all .15s; letter-spacing: .06em; white-space: nowrap;
+}
+.act-btn:hover { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,.1); }
+.act-btn:disabled { opacity: .4; cursor: not-allowed; }
+.act-btn.active { border-color: var(--cyan); color: var(--cyan); }
+
+/* ─── CHART CONTAINERS ─── */
+.chart-wrap {
+  background: var(--base); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px; position: relative;
+}
+.chart-wrap canvas { display: block; }
+
+/* ─── METRICS STRIP ─── */
+.metrics { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.metric-box {
+  background: var(--base); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 16px; flex: 1; min-width: 100px;
+}
+.metric-label { font-size: 8px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.metric-val { font-family: var(--display); font-size: 22px; font-weight: 700; line-height: 1; }
+.metric-sub { font-family: var(--serif); font-style: italic; font-size: 10px; color: var(--muted); margin-top: 3px; }
+.zone-tag { display: inline-block; font-size: 8px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; font-weight: 700; }
+.zg { background: rgba(0,230,118,.1); color: var(--green); border: 1px solid rgba(0,230,118,.25); }
+.zs { background: rgba(0,229,255,.1); color: var(--cyan); border: 1px solid rgba(0,229,255,.25); }
+.zh { background: rgba(255,82,82,.1); color: var(--red); border: 1px solid rgba(255,82,82,.25); }
+
+/* ─── SCENARIO A GRID ─── */
+.t-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(195px, 1fr)); gap: 8px; margin-bottom: 18px; }
+.t-row {
+  background: var(--base); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 12px;
+  display: flex; align-items: center; gap: 10px;
+  transition: border-color .2s;
+}
+.t-row.running { border-color: rgba(0,229,255,.4); }
+.t-row.done { border-color: var(--border); }
+.t-label { font-family: var(--display); font-size: 10px; font-weight: 600; color: var(--cyan); min-width: 40px; }
+.t-chips { display: flex; gap: 6px; flex: 1; }
+.t-chip {
+  flex: 1; text-align: center; font-size: 8px; padding: 4px 6px;
+  border-radius: 4px; border: 1px solid var(--border); color: var(--muted);
+  transition: all .25s; letter-spacing: .04em; white-space: nowrap;
+}
+.t-chip.loading { border-color: rgba(0,229,255,.4); color: var(--cyan); animation: chipblink .8s infinite; }
+.t-chip.pass { background: rgba(0,230,118,.08); border-color: rgba(0,230,118,.3); color: var(--green); }
+.t-chip.fail { background: rgba(255,82,82,.08); border-color: rgba(255,82,82,.3); color: var(--red); }
+@keyframes chipblink { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+/* ─── LOG TERMINAL ─── */
+.log-terminal {
+  background: var(--void); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+  font-size: 10px; color: var(--muted); line-height: 1.9;
+  min-height: 38px; max-height: 130px; overflow-y: auto;
+  margin-top: 12px; font-family: var(--mono);
+  position: relative;
+}
+.log-terminal::before {
+  content: '$ ';
+  color: var(--cyan); opacity: .4;
+}
+.log-terminal::-webkit-scrollbar { width: 3px; }
+.log-terminal::-webkit-scrollbar-thumb { background: var(--border2); }
+.l-ok { color: var(--green); }
+.l-err { color: var(--red); }
+.l-info { color: var(--cyan); }
+.l-warn { color: var(--gold); }
+
+/* ─── PROGRESS BAR ─── */
+.prog-wrap { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 10px; }
+.prog-fill { height: 100%; width: 0%; background: linear-gradient(90deg, var(--cyan), var(--purple)); border-radius: 2px; transition: width .4s ease; }
+
+/* ─── SNIPPET CARDS ─── */
+.snip-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 18px; }
+.snip-card { background: var(--base); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.snip-head { padding: 8px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,.02); }
+.snip-t { font-family: var(--display); font-size: 10px; font-weight: 600; color: var(--cyan); }
+.snip-tags { display: flex; gap: 5px; }
+.stag { font-size: 7px; padding: 2px 7px; border-radius: 3px; font-weight: 700; letter-spacing: .06em; }
+.stag.ok { background: rgba(0,230,118,.1); color: var(--green); }
+.stag.ng { background: rgba(255,82,82,.1); color: var(--red); }
+.snip-cols { display: grid; grid-template-columns: 1fr 1fr; }
+.snip-col { padding: 10px 12px; }
+.snip-col + .snip-col { border-left: 1px solid var(--border); }
+.snip-model { font-size: 7px; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 5px; }
+.snip-code { font-size: 9.5px; line-height: 1.6; color: #8090b0; white-space: pre-wrap; word-break: break-word; max-height: 120px; overflow-y: auto; }
+.snip-code::-webkit-scrollbar { width: 2px; }
+.snip-code::-webkit-scrollbar-thumb { background: var(--border2); }
+
+/* ─── SCENARIO B ─── */
+.b-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media(max-width:700px){.b-grid{grid-template-columns:1fr}}
+.b-block { background: var(--base); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.b-head { padding: 10px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+.b-label { font-family: var(--display); font-size: 10px; font-weight: 600; }
+.b-label.topk { color: var(--red); }
+.b-label.topp { color: var(--green); }
+.b-tag { font-size: 8px; color: var(--muted); border: 1px solid var(--border2); border-radius: 3px; padding: 2px 6px; }
+.b-outputs { display: flex; flex-direction: column; }
+.b-out { padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.b-out:last-child { border-bottom: none; }
+.b-out-label { font-size: 8px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+.b-out-text { font-family: var(--serif); font-size: 12px; line-height: 1.75; color: #a0b0c8; max-height: 140px; overflow-y: auto; }
+.b-out-text::-webkit-scrollbar { width: 2px; }
+.b-out-text::-webkit-scrollbar-thumb { background: var(--border2); }
+.b-mets { padding: 10px 14px; background: rgba(255,255,255,.02); border-top: 1px solid var(--border); display: flex; gap: 8px; flex-wrap: wrap; }
+.bm { flex: 1; min-width: 70px; }
+.bm-label { font-size: 7px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.bm-val { font-family: var(--display); font-size: 16px; font-weight: 700; }
+
+/* ─── COMPARE TABLE ─── */
+.ctable { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+.ctable th { font-size: 8px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); padding: 0 14px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+.ctable td { padding: 12px 14px; background: var(--base); font-size: 11px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); vertical-align: top; transition: background .15s; }
+.ctable td:first-child { border-left: 1px solid var(--border); border-radius: 6px 0 0 6px; }
+.ctable td:last-child { border-right: 1px solid var(--border); border-radius: 0 6px 6px 0; }
+.ctable tr:hover td { background: var(--raised); }
+.p-tag { font-family: var(--display); font-size: 10px; font-weight: 700; color: var(--cyan); white-space: nowrap; }
+.det-y { color: var(--green); font-weight: 700; }
+.det-n { color: var(--red); font-weight: 700; }
+.out-cell { font-family: var(--serif); font-size: 11px; line-height: 1.6; color: #8090b0; max-width: 200px; }
+
+/* ─── CHEAT SHEET ─── */
+.cheat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+@media(max-width:800px){.cheat-grid{grid-template-columns:1fr}}
+.cheat-card { border-radius: 10px; padding: 20px; border: 1px solid; position: relative; overflow: hidden; }
+.cheat-card::after { content: attr(data-icon); position: absolute; right: -10px; bottom: -14px; font-size: 70px; opacity: .04; pointer-events: none; }
+.cc-code { border-color: rgba(0,229,255,.2); background: rgba(0,229,255,.03); }
+.cc-story { border-color: rgba(255,193,7,.2); background: rgba(255,193,7,.03); }
+.cc-rag { border-color: rgba(0,230,118,.2); background: rgba(0,230,118,.03); }
+.cheat-icon { font-size: 22px; margin-bottom: 10px; }
+.cheat-name { font-family: var(--display); font-size: 11px; font-weight: 700; margin-bottom: 14px; letter-spacing: .04em; }
+.cheat-rows { display: flex; flex-direction: column; gap: 8px; }
+.cheat-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.04); }
+.cheat-row:last-child { border-bottom: none; }
+.ck { font-size: 8px; letter-spacing: .12em; color: var(--muted); text-transform: uppercase; }
+.cv { font-family: var(--display); font-size: 11px; font-weight: 600; }
+.cv-c { color: var(--cyan); } .cv-s { color: var(--gold); } .cv-r { color: var(--green); }
+.cheat-insight { margin-top: 12px; font-family: var(--serif); font-style: italic; font-size: 11px; color: var(--muted); line-height: 1.6; padding-top: 12px; border-top: 1px solid rgba(255,255,255,.04); }
+
+/* ─── SPINNER ─── */
+.spin { display: inline-block; width: 10px; height: 10px; border: 2px solid rgba(0,229,255,.2); border-top-color: var(--cyan); border-radius: 50%; animation: rotate .6s linear infinite; vertical-align: middle; }
+@keyframes rotate { to { transform: rotate(360deg); } }
+
+/* ─── PARAMS CONFIG ROW ─── */
+.params-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+.param-group { flex: 1; min-width: 120px; }
+.param-label { font-size: 8px; letter-spacing: .14em; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; display: flex; align-items: center; justify-content: space-between; }
+.param-label span { color: var(--gold); font-weight: 600; }
+.param-input {
+  width: 100%; background: var(--void); border: 1px solid var(--border2);
+  border-radius: 5px; padding: 7px 10px;
+  font-family: var(--mono); font-size: 10px; color: var(--text); outline: none;
+  transition: border-color .15s;
+}
+.param-input:focus { border-color: var(--cyan); }
+
+/* ─── CUSTOM PROMPT BOX ─── */
+.prompt-box {
+  background: var(--void); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 12px 14px;
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+  outline: none; width: 100%; resize: vertical; min-height: 70px;
+  transition: border-color .15s; line-height: 1.7;
+}
+.prompt-box:focus { border-color: var(--cyan); }
+
+/* ─── SCROLLBAR GLOBAL ─── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+/* ─── MODAL (Change Key) ─── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(5,6,8,.85); backdrop-filter: blur(12px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+.modal {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px; width: 90%; max-width: 460px;
+  position: relative;
+}
+.modal h3 { font-family: var(--display); font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.modal p { font-family: var(--serif); font-style: italic; font-size: 12px; color: var(--muted); margin-bottom: 20px; }
+.modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 18px; transition: color .15s; }
+.modal-close:hover { color: var(--text); }
+.modal-btn {
+  width: 100%; padding: 12px;
+  background: linear-gradient(135deg, var(--cyan2), var(--cyan));
+  border: none; border-radius: 6px;
+  font-family: var(--display); font-size: 13px; font-weight: 600;
+  color: var(--void); cursor: pointer; margin-top: 16px;
+  transition: all .2s;
+}
+.modal-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,229,255,.25); }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     LOCK SCREEN
+════════════════════════════════════════════ -->
+<div id="lockScreen">
+  <div class="lock-glow"></div>
+  <div class="lock-inner">
+    <div class="lock-badge">LATENT SPACE LAB · HW2</div>
+    <div class="lock-title">Stochastic<br/>Decoding Lab ·Design by Mr. Mony Ratanak</div>
+    <div class="lock-sub">AI Engineer · Advanced · Instructor: Sophal Chan </div>
+    <div class="lock-form">
+      <label class="lf-label">OpenRouter API Key</label>
+      <div class="lf-input-wrap">
+        <input id="lockKey" class="lf-input" type="password"
+          placeholder="sk-or-v1-…"
+          autocomplete="off" spellcheck="false"/>
+        <span class="lf-eye" onclick="toggleEye('lockKey',this)">👁</span>
+      </div>
+      <label class="lf-label" style="margin-top:0">Your Name / Course ID <span style="color:var(--muted)">(optional)</span></label>
+      <div class="lf-input-wrap">
+        <input id="lockName" class="lf-input" type="text"
+          placeholder="e.g. Sophal Chan · AI-ENG-2025"
+          style="padding-right:16px"/>
+      </div>
+      <button class="lf-connect" id="lockBtn" onclick="connectKey()">
+        Connect &amp; Load Models →
+      </button>
+      <div class="lf-error" id="lockErr"></div>
+      <div class="lf-hint">
+        Get your key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a> · Key is stored only in memory
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- NAV BAR -->
+  <nav class="navbar">
+    <div class="nav-brand">
+      <div class="nav-logo">Latent<span>Space</span>Lab</div>
+      <div class="nav-tag">HW2 · AI ENGINEER</div>
+      <div class="nav-tag" style="color:var(--gold);border-color:rgba(255,193,7,.3)">DESIGN · MR. MONY RATANAK</div>
+      <div class="nav-tag" id="navName" style="color:var(--gold);border-color:rgba(255,193,7,.3)"></div>
+    </div>
+    <div class="nav-right">
+      <div class="nav-key-display" onclick="openModal()">
+        <div class="nav-key-dot"></div>
+        <span id="keyPreview">sk-or-v1-…</span>
+        <span style="color:var(--muted)">✎</span>
+      </div>
+      <div class="nav-status">
+        <div class="ns-dot" id="ns-dot"></div>
+        <span id="ns-text">Idle</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- APP BODY -->
+  <div class="app-body">
+
+    <!-- ─── SIDEBAR ─── -->
+    <aside class="sidebar">
+
+      <!-- Nav -->
+      <div class="sb-section">
+        <div class="sb-label">Navigation</div>
+        <div class="nav-items">
+          <div class="ni active" onclick="navTo('c1',this)"><span class="ni-num">01</span><div class="ni-dot"></div>Logit Visualizer</div>
+          <div class="ni" onclick="navTo('c2',this)"><span class="ni-num">02</span><div class="ni-dot"></div>Entropy Curve</div>
+          <div class="ni" onclick="navTo('c3',this)"><span class="ni-num">03</span><div class="ni-dot"></div>Scenario A — Logic</div>
+          <div class="ni" onclick="navTo('c4',this)"><span class="ni-num">04</span><div class="ni-dot"></div>Scenario B — Nucleus</div>
+          <div class="ni" onclick="navTo('c5',this)"><span class="ni-num">05</span><div class="ni-dot"></div>Comparison Table</div>
+          <div class="ni" onclick="navTo('c6',this)"><span class="ni-num">06</span><div class="ni-dot"></div>Cheat Sheet</div>
+        </div>
+      </div>
+
+      <!-- Models -->
+      <div class="sb-section">
+        <div class="sb-label">Models <span class="mcount-badge" id="mcount">0</span></div>
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input class="search-input" id="msearch" placeholder="Search models…" oninput="filterMods()"/>
+        </div>
+        <div class="cfg-field">
+          <div class="cfg-label">Model A <span style="color:var(--m1c)">■</span></div>
+          <select id="m1" class="cfg-select" onchange="onMC()"><option value="openai/gpt-4o">openai/gpt-4o</option></select>
+        </div>
+        <div class="cfg-field" style="margin-bottom:10px">
+          <div class="cfg-label">Model B <span style="color:var(--m2c)">■</span></div>
+          <select id="m2" class="cfg-select" onchange="onMC()"><option value="anthropic/claude-sonnet-4.5">anthropic/claude-sonnet-4-5</option></select>
+        </div>
+        <div class="model-badge"><div class="mb-dot" style="background:var(--m1c)"></div><div class="mb-name" id="mb1">gpt-4o</div><div class="mb-tag">A</div></div>
+        <div class="model-badge"><div class="mb-dot" style="background:var(--m2c)"></div><div class="mb-name" id="mb2">claude-sonnet-4-5</div><div class="mb-tag">B</div></div>
+        <button class="load-btn" id="loadBtn" onclick="loadModels()" style="margin-top:8px">⟳ &nbsp;Refresh Model List</button>
+      </div>
+
+      <!-- Global Params -->
+      <div class="sb-section">
+        <div class="sb-label">Global Defaults</div>
+        <div class="cfg-field">
+          <div class="cfg-label">Max Tokens <span class="cfg-val" id="gtokVal">400</span></div>
+          <input type="range" id="gtok" min="50" max="1000" step="50" value="400" oninput="document.getElementById('gtokVal').textContent=this.value"/>
+        </div>
+        <div class="cfg-field">
+          <div class="cfg-label">A Top-P <span class="cfg-val" id="gtpVal">1.00</span></div>
+          <input type="range" id="gtp" min="0.01" max="1.0" step="0.01" value="1.0" oninput="document.getElementById('gtpVal').textContent=parseFloat(this.value).toFixed(2)"/>
+        </div>
+      </div>
+
+      <!-- Run All -->
+      <div class="sb-section">
+        <button class="run-all-btn" id="runAllBtn" onclick="runAll()">▶ RUN ALL EXPERIMENTS</button>
+        <div class="global-prog"><div class="global-bar" id="gbar"></div></div>
+        <div class="global-status" id="gstat">Ready — select models and run</div>
+      </div>
+
+    </aside>
+
+    <!-- ─── CONTENT ─── -->
+    <div class="content">
+
+      <!-- ══ 01 LOGIT VISUALIZER ══ -->
+      <div class="card" id="c1">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <span class="card-num">01</span>
+            <div>
+              <div class="card-title">Logit Visualizer</div>
+              <div class="card-desc">Live probability distribution — drag temperature to reshape</div>
+            </div>
+          </div>
+          <button class="act-btn" onclick="drawLogit()">↻ Redraw</button>
+        </div>
+        <div class="card-body">
+          <!-- Controls row -->
+          <div class="params-row">
+            <div class="param-group">
+              <div class="param-label">Temperature <span id="lv-t">1.00</span></div>
+              <input type="range" id="lv-slider" min="0.05" max="2.0" step="0.05" value="1.0" oninput="onLvSlider()"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Token Set</div>
+              <select class="param-input" id="lv-tokenset" onchange="drawLogit()" style="padding:6px 8px">
+                <option value="python">Python keywords</option>
+                <option value="english">English words</option>
+                <option value="numbers">Numbers / math</option>
+              </select>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:240px">
+            <canvas id="lvChart" style="height:100%!important"></canvas>
+          </div>
+          <div class="metrics" id="lvMets"></div>
+        </div>
+      </div>
+
+      <!-- ══ 02 ENTROPY CURVE ══ -->
+      <div class="card" id="c2">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <span class="card-num">02</span>
+            <div>
+              <div class="card-title">Shannon Entropy vs Temperature</div>
+              <div class="card-desc">Theoretical curve — greedy · sweet spot · hallucination zones</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap" style="height:260px">
+            <canvas id="ecChart" style="height:100%!important"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 03 SCENARIO A ══ -->
+      <div class="card" id="c3">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <span class="card-num">03</span>
+            <div>
+              <div class="card-title">Scenario A — Logic vs Hallucination</div>
+              <div class="card-desc">Custom prompt · T swept 0.0→2.0 in Δ0.2 · syntax check</div>
+            </div>
+          </div>
+          <button class="act-btn" id="btnA" onclick="runA()">▶ Run</button>
+        </div>
+        <div class="card-body">
+          <!-- Custom prompt -->
+          <div style="margin-bottom:14px">
+            <div class="param-label" style="margin-bottom:6px">PROMPT A <span style="color:var(--muted)">(editable)</span></div>
+            <textarea id="promptA" class="prompt-box" rows="3">Write a Python function to calculate the Eigenvalues of a 4x4 matrix WITHOUT using NumPy or any external library. Return ONLY valid Python code, no explanation.</textarea>
+          </div>
+          <!-- Params -->
+          <div class="params-row" style="margin-bottom:14px">
+            <div class="param-group">
+              <div class="param-label">Top-P (fixed) <span id="a-tp-v">1.00</span></div>
+              <input type="range" id="a-tp" min="0.01" max="1.0" step="0.01" value="1.0" oninput="document.getElementById('a-tp-v').textContent=parseFloat(this.value).toFixed(2)"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">T Step <span id="a-step-v">0.2</span></div>
+              <select class="param-input" id="a-step" onchange="document.getElementById('a-step-v').textContent=this.value;buildGrid()" style="padding:6px 8px">
+                <option value="0.2">0.2</option>
+                <option value="0.1">0.1</option>
+                <option value="0.5">0.5</option>
+              </select>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Max Tokens <span id="a-tok-v">450</span></div>
+              <input type="range" id="a-tok" min="100" max="1000" step="50" value="450" oninput="document.getElementById('a-tok-v').textContent=this.value"/>
+            </div>
+          </div>
+          <div class="t-grid" id="tGrid"></div>
+          <div class="prog-wrap"><div class="prog-fill" id="progA"></div></div>
+          <div class="log-terminal" id="logA">Waiting to run…</div>
+          <div id="aChartWrap" style="display:none;margin-top:18px">
+            <div class="chart-wrap" style="height:200px"><canvas id="aChart" style="height:100%!important"></canvas></div>
+          </div>
+          <div class="snip-grid" id="aSnips"></div>
+        </div>
+      </div>
+
+      <!-- ══ 04 SCENARIO B ══ -->
+      <div class="card" id="c4">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <span class="card-num">04</span>
+            <div>
+              <div class="card-title">Scenario B — Top-K vs Top-P Nucleus</div>
+              <div class="card-desc">Compare sampling strategies · fully configurable</div>
+            </div>
+          </div>
+          <button class="act-btn" id="btnB" onclick="runB()">▶ Run</button>
+        </div>
+        <div class="card-body">
+          <!-- Custom prompt -->
+          <div style="margin-bottom:14px">
+            <div class="param-label" style="margin-bottom:6px">PROMPT B <span style="color:var(--muted)">(editable)</span></div>
+            <textarea id="promptB" class="prompt-box" rows="2">Summarize the history of Angkor Wat in the style of a 1920s hardboiled detective. Be vivid and creative. Write at least 150 words.</textarea>
+          </div>
+          <!-- Params -->
+          <div class="params-row" style="margin-bottom:16px">
+            <div class="param-group">
+              <div class="param-label">Temperature <span id="b-t-v">0.80</span></div>
+              <input type="range" id="b-t" min="0.01" max="2.0" step="0.01" value="0.8" oninput="document.getElementById('b-t-v').textContent=parseFloat(this.value).toFixed(2)"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Top-K top_p <span id="b-k-v">0.50</span></div>
+              <input type="range" id="b-k" min="0.01" max="1.0" step="0.01" value="0.5" oninput="document.getElementById('b-k-v').textContent=parseFloat(this.value).toFixed(2)"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Top-P value <span id="b-p-v">0.90</span></div>
+              <input type="range" id="b-p" min="0.01" max="1.0" step="0.01" value="0.9" oninput="document.getElementById('b-p-v').textContent=parseFloat(this.value).toFixed(2)"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Max Tokens <span id="b-tok-v">350</span></div>
+              <input type="range" id="b-tok" min="100" max="800" step="50" value="350" oninput="document.getElementById('b-tok-v').textContent=this.value"/>
+            </div>
+          </div>
+          <div class="b-grid">
+            <!-- Top-K -->
+            <div class="b-block">
+              <div class="b-head">
+                <span class="b-label topk">Top-K (narrow nucleus)</span>
+                <span class="b-tag" id="bk-tag">top_p=0.50</span>
+              </div>
+              <div class="b-outputs">
+                <div class="b-out">
+                  <div class="b-out-label"><div class="mb-dot" style="width:6px;height:6px;background:var(--m1c)"></div><span id="bkl1" style="color:var(--m1c)">Model A</span></div>
+                  <div class="b-out-text" id="bkOut1">—</div>
+                </div>
+                <div class="b-out">
+                  <div class="b-out-label"><div class="mb-dot" style="width:6px;height:6px;background:var(--m2c)"></div><span id="bkl2" style="color:var(--m2c)">Model B</span></div>
+                  <div class="b-out-text" id="bkOut2">—</div>
+                </div>
+              </div>
+              <div class="b-mets" id="bkMets"></div>
+            </div>
+            <!-- Top-P -->
+            <div class="b-block">
+              <div class="b-head">
+                <span class="b-label topp">Top-P (dynamic nucleus)</span>
+                <span class="b-tag" id="bp-tag">top_p=0.90</span>
+              </div>
+              <div class="b-outputs">
+                <div class="b-out">
+                  <div class="b-out-label"><div class="mb-dot" style="width:6px;height:6px;background:var(--m1c)"></div><span id="bpl1" style="color:var(--m1c)">Model A</span></div>
+                  <div class="b-out-text" id="bpOut1">—</div>
+                </div>
+                <div class="b-out">
+                  <div class="b-out-label"><div class="mb-dot" style="width:6px;height:6px;background:var(--m2c)"></div><span id="bpl2" style="color:var(--m2c)">Model B</span></div>
+                  <div class="b-out-text" id="bpOut2">—</div>
+                </div>
+              </div>
+              <div class="b-mets" id="bpMets"></div>
+            </div>
+          </div>
+          <div class="log-terminal" id="logB" style="margin-top:12px">Waiting to run…</div>
+          <div id="bChartWrap" style="display:none;margin-top:18px">
+            <div class="chart-wrap" style="height:240px"><canvas id="bChart" style="height:100%!important"></canvas></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ══ 05 COMPARISON TABLE ══ -->
+      <div class="card" id="c5">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <span class="card-num">05</span>
+            <div>
+              <div class="card-title">Rubric Comparison Table</div>
+              <div class="card-desc">High-T vs greedy — coherence & determinism test</div>
+            </div>
+          </div>
+          <button class="act-btn" id="btnC" onclick="runC()">▶ Run</button>
+        </div>
+        <div class="card-body">
+          <!-- Configurable compare params -->
+          <div style="margin-bottom:14px">
+            <div class="param-label" style="margin-bottom:6px">COMPARISON PROMPT <span style="color:var(--muted)">(editable)</span></div>
+            <textarea id="promptC" class="prompt-box" rows="2" style="min-height:52px">Explain what a large language model is in exactly one sentence.</textarea>
+          </div>
+          <div class="params-row" style="margin-bottom:16px">
+            <div class="param-group">
+              <div class="param-label">High-T value <span id="c-ht-v">1.80</span></div>
+              <input type="range" id="c-ht" min="0.5" max="2.0" step="0.1" value="1.8" oninput="document.getElementById('c-ht-v').textContent=parseFloat(this.value).toFixed(2)"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Low-T value <span id="c-lt-v">0.10</span></div>
+              <input type="range" id="c-lt" min="0.01" max="0.5" step="0.01" value="0.1" oninput="document.getElementById('c-lt-v').textContent=parseFloat(this.value).toFixed(2)"/>
+            </div>
+            <div class="param-group">
+              <div class="param-label">Greedy top_p <span id="c-gtp-v">0.01</span></div>
+              <input type="range" id="c-gtp" min="0.001" max="0.1" step="0.001" value="0.01" oninput="document.getElementById('c-gtp-v').textContent=parseFloat(this.value).toFixed(3)"/>
+            </div>
+          </div>
+          <table class="ctable">
+            <thead>
+              <tr>
+                <th>PARAMS</th>
+                <th id="cth1">Model A</th>
+                <th id="cth2">Model B</th>
+                <th>A DET.</th>
+                <th>B DET.</th>
+                <th>ANALYSIS</th>
+              </tr>
+            </thead>
+            <tbody id="cBody">
+              <tr><td class="p-tag">—</td><td colspan="5" style="color:var(--muted);font-size:10px">Run to populate…</td></tr>
+            </tbody>
+          </table>
+          <div class="log-terminal" id="logC" style="margin-top:12px">Waiting to run…</div>
+        </div>
+      </div>
+
+      <!-- ══ 06 CHEAT SHEET ══ -->
+      <div class="card" id="c6">
+        <div class="card-head">
+          <div class="card-title-wrap">
+            <span class="card-num">06</span>
+            <div>
+              <div class="card-title">Golden Parameter Cheat Sheet</div>
+              <div class="card-desc">Engineer's recommendations — Coding · Storytelling · RAG</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="cheat-grid">
+            <div class="cheat-card cc-code" data-icon="💻">
+              <div class="cheat-icon">💻</div>
+              <div class="cheat-name">Coding / Logic</div>
+              <div class="cheat-rows">
+                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-c">0.0 – 0.3</span></div>
+                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-c">10 – 20</span></div>
+                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-c">0.85 – 0.95</span></div>
+                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-c">T=0.2, p=0.9</span></div>
+              </div>
+              <div class="cheat-insight">Low T collapses mass onto the most syntactically valid token — deterministic, fewer errors.</div>
+            </div>
+            <div class="cheat-card cc-story" data-icon="📖">
+              <div class="cheat-icon">📖</div>
+              <div class="cheat-name">Storytelling / Creative</div>
+              <div class="cheat-rows">
+                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-s">0.7 – 1.0</span></div>
+                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-s">Avoid — loops</span></div>
+                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-s">0.88 – 0.95</span></div>
+                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-s">T=0.9, p=0.92</span></div>
+              </div>
+              <div class="cheat-insight">High T + Top-P enables rich vocabulary. Top-K causes loops — never use alone for creative tasks.</div>
+            </div>
+            <div class="cheat-card cc-rag" data-icon="🔍">
+              <div class="cheat-icon">🔍</div>
+              <div class="cheat-name">RAG / Factual Q&A</div>
+              <div class="cheat-rows">
+                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-r">0.1 – 0.4</span></div>
+                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-r">5 – 15</span></div>
+                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-r">0.80 – 0.90</span></div>
+                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-r">T=0.2, p=0.85</span></div>
+              </div>
+              <div class="cheat-insight">Low T grounds answers in retrieved context. Hallucination drops sharply below T=0.3.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /app-body -->
+</div><!-- /app -->
+
+<!-- ─── CHANGE KEY MODAL ─── -->
+<div class="modal-overlay" id="keyModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <h3>Change API Key</h3>
+    <p>Enter a new OpenRouter key — updates immediately</p>
+    <label class="lf-label">New API Key</label>
+    <div class="lf-input-wrap">
+      <input id="modalKey" class="lf-input" type="password" placeholder="sk-or-v1-…"/>
+      <span class="lf-eye" onclick="toggleEye('modalKey',this)">👁</span>
+    </div>
+    <button class="modal-btn" onclick="updateKey()">Update &amp; Reload Models</button>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   STATE
+═══════════════════════════════════════════════════ */
+let API_KEY = '';
+let allMods = [];
+let lvInst = null, ecInst = null, aInst = null, bInst = null;
+let sAdata = [], sBdata = {};
+let tempsA = [];
+
+const OR_URL  = 'https://openrouter.ai/api/v1/chat/completions';
+const OR_MODS = 'https://openrouter.ai/api/v1/models';
+const OR_KEY  = 'https://openrouter.ai/api/v1/key';
+
+/* Token sets for logit viz */
+const TOKEN_SETS = {
+  python:  { logits:[6.2,5.8,4.1,2.9,1.5,0.8,0.3,0.1,0.05,0.01], labels:['def','class','import','return','for','while','lambda','yield','pass','None'] },
+  english: { logits:[5.8,5.2,4.6,3.9,3.1,2.4,1.7,0.9,0.4,0.1],   labels:['the','a','an','is','was','in','of','to','and','it'] },
+  numbers: { logits:[6.0,5.5,4.8,4.0,3.2,2.5,1.8,1.0,0.5,0.1],   labels:['0','1','2','3','4','5','6','7','8','9'] }
+};
+
+/* ═══════════════════════════════════════════════════
+   LOCK SCREEN
+═══════════════════════════════════════════════════ */
+function toggleEye(inputId, el) {
+  const inp = document.getElementById(inputId);
+  const isPass = inp.type === 'password';
+  inp.type = isPass ? 'text' : 'password';
+  el.textContent = isPass ? '🙈' : '👁';
+}
+
+async function validateOpenRouterKey(key) {
+  const r = await fetch(OR_KEY, { headers: { 'Authorization': 'Bearer ' + key } });
+  if (!r.ok) return false;
+  const d = await r.json();
+  const expiresAt = d?.data?.expires_at;
+  if (expiresAt) {
+    const expiresMs = Date.parse(expiresAt);
+    if (!Number.isNaN(expiresMs) && Date.now() >= expiresMs) return false;
+  }
+  return true;
+}
+
+async function connectKey() {
+  const key = document.getElementById('lockKey').value.trim();
+  const name = document.getElementById('lockName').value.trim();
+  const err = document.getElementById('lockErr');
+  const btn = document.getElementById('lockBtn');
+
+  if (!key || !key.startsWith('sk-or')) {
+    err.style.display = 'block';
+    err.textContent = 'please give the correct key';
+    return;
+  }
+  err.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = '⟳ Connecting…';
+
+  try {
+    const keyValid = await validateOpenRouterKey(key);
+    if (!keyValid) throw new Error('please give the correct key');
+    const r = await fetch(OR_MODS, { headers: { 'Authorization': 'Bearer ' + key } });
+    if (!r.ok) throw new Error('please give the correct key');
+    const d = await r.json();
+    API_KEY = key;
+    allMods = d.data.map(m => ({ id: m.id, prov: m.id.split('/')[0], ctx: m.context_length || 0 }))
+                    .sort((a, b) => a.id.localeCompare(b.id));
+
+    // Launch app
+    document.getElementById('lockScreen').style.animation = 'fadeOut .4s ease forwards';
+    setTimeout(() => {
+      document.getElementById('lockScreen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      document.getElementById('keyPreview').textContent = key.slice(0,18) + '…';
+      document.getElementById('mcount').textContent = allMods.length;
+      if (name) { document.getElementById('navName').textContent = name; document.getElementById('navName').style.display=''; }
+      else { document.getElementById('navName').style.display='none'; }
+      populateSels(allMods);
+      buildGrid();
+      drawLogit();
+      drawEntropy();
+      onMC();
+    }, 380);
+  } catch(e) {
+    err.style.display = 'block';
+    err.textContent = 'please give the correct key';
+    btn.disabled = false;
+    btn.textContent = 'Connect & Load Models →';
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   MODAL (change key)
+═══════════════════════════════════════════════════ */
+function openModal() {
+  document.getElementById('modalKey').value = '';
+  document.getElementById('keyModal').classList.add('open');
+}
+function closeModal() { document.getElementById('keyModal').classList.remove('open'); }
+async function updateKey() {
+  const k = document.getElementById('modalKey').value.trim();
+  if (!k) return;
+
+  if (!k.startsWith('sk-or')) {
+    setSt('please give the correct key', false);
+    return;
+  }
+
+  try {
+    const keyValid = await validateOpenRouterKey(k);
+    if (!keyValid) throw new Error('invalid');
+  } catch (_) {
+    setSt('please give the correct key', false);
+    return;
+  }
+
+  API_KEY = k;
+  document.getElementById('keyPreview').textContent = k.slice(0,18) + '…';
+  closeModal();
+  await loadModels();
+}
+
+/* ═══════════════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════════════ */
+function navTo(id, el) {
+  document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.ni').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+}
+
+/* ═══════════════════════════════════════════════════
+   STATUS
+═══════════════════════════════════════════════════ */
+function setSt(msg, live = false) {
+  document.getElementById('ns-text').textContent = msg;
+  document.getElementById('ns-dot').className = 'ns-dot' + (live ? ' live' : '');
+}
+
+/* ═══════════════════════════════════════════════════
+   MODEL LOADING
+═══════════════════════════════════════════════════ */
+async function loadModels() {
+  const btn = document.getElementById('loadBtn');
+  btn.disabled = true; btn.textContent = '⟳ Loading…';
+  setSt('Fetching models…', true);
+  try {
+    const r = await fetch(OR_MODS, { headers: { 'Authorization': 'Bearer ' + API_KEY } });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    allMods = d.data.map(m => ({ id: m.id, prov: m.id.split('/')[0] })).sort((a, b) => a.id.localeCompare(b.id));
+    populateSels(allMods);
+    document.getElementById('mcount').textContent = allMods.length;
+    btn.textContent = '✓ ' + allMods.length + ' models';
+    setSt('Models loaded', false);
+  } catch(e) {
+    btn.textContent = '✗ Failed';
+    setSt('Error: ' + e.message, false);
+  }
+  btn.disabled = false;
+}
+
+function populateSels(mods) {
+  const s1 = document.getElementById('m1'), s2 = document.getElementById('m2');
+  const c1 = s1.value, c2 = s2.value;
+  const byProv = {};
+  mods.forEach(m => { if (!byProv[m.prov]) byProv[m.prov] = []; byProv[m.prov].push(m); });
+
+  [s1, s2].forEach((sel, idx) => {
+    const cur = idx === 0 ? c1 : c2;
+    sel.innerHTML = '';
+    let found = false;
+    Object.keys(byProv).sort().forEach(p => {
+      const g = document.createElement('optgroup'); g.label = p.toUpperCase();
+      byProv[p].forEach(m => {
+        const o = document.createElement('option'); o.value = m.id; o.textContent = m.id;
+        if (m.id === cur) { o.selected = true; found = true; }
+        g.appendChild(o);
+      });
+      sel.appendChild(g);
+    });
+    if (!found && mods.length) sel.options[0].selected = true;
+  });
+  onMC();
+}
+
+function filterMods() {
+  const q = document.getElementById('msearch').value.toLowerCase();
+  const f = q ? allMods.filter(m => m.id.toLowerCase().includes(q)) : allMods;
+  populateSels(f.length ? f : allMods);
+}
+
+function onMC() {
+  const m1 = document.getElementById('m1').value;
+  const m2 = document.getElementById('m2').value;
+  const n1 = m1.split('/').pop(), n2 = m2.split('/').pop();
+  document.getElementById('mb1').textContent = m1;
+  document.getElementById('mb2').textContent = m2;
+  document.getElementById('cth1').textContent = n1;
+  document.getElementById('cth2').textContent = n2;
+  ['bkl1','bpl1'].forEach(id => { const e = document.getElementById(id); if(e) e.textContent = n1; });
+  ['bkl2','bpl2'].forEach(id => { const e = document.getElementById(id); if(e) e.textContent = n2; });
+}
+
+/* ═══════════════════════════════════════════════════
+   API CALL
+═══════════════════════════════════════════════════ */
+async function callModel(model, prompt, temperature = 1.0, top_p = 1.0, max_tokens = 400) {
+  const isAnth = model.startsWith('anthropic/');
+  const t = isAnth ? Math.min(temperature, 1.0) : Math.min(temperature, 2.0);
+  const r = await fetch(OR_URL, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + API_KEY,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': 'http://localhost:8080',
+      'X-Title': 'HW2 Latent Space Lab'
+    },
+    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: t, top_p, max_tokens })
+  });
+  if (!r.ok) { const tx = await r.text(); throw new Error(r.status + ': ' + tx.slice(0, 120)); }
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+  return d.choices[0].message.content.trim();
+}
+
+/* ═══════════════════════════════════════════════════
+   MATH / TEXT HELPERS
+═══════════════════════════════════════════════════ */
+function softmax(L, T) {
+  const s = L.map(x => x / Math.max(T, 1e-10));
+  const mx = Math.max(...s);
+  const e = s.map(x => Math.exp(x - mx));
+  const sm = e.reduce((a, b) => a + b, 0);
+  return e.map(v => v / sm);
+}
+function entropy(p) { return -p.reduce((s, v) => s + (v > 1e-12 ? v * Math.log(v) : 0), 0); }
+function uwr(t) { const w = t.toLowerCase().split(/\s+/); return new Set(w).size / Math.max(w.length, 1); }
+function repScore(t) {
+  const w = t.toLowerCase().split(/\s+/); if (w.length < 4) return 0;
+  const ng = []; for (let i = 0; i < w.length - 3; i++) ng.push(w.slice(i,i+4).join('|'));
+  const seen = new Set(); let d = 0;
+  ng.forEach(g => { if (seen.has(g)) d++; seen.add(g); });
+  return d / Math.max(ng.length, 1);
+}
+function synOk(c) { return (c.includes('def ') || c.includes('class ')) && c.includes(':') && c.length > 60; }
+function stripF(c) { return c.replace(/^```[\w]*\n?/m, '').replace(/\n?```$/m, ''); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function setL(id, msg, cls = '') {
+  const e = document.getElementById(id);
+  e.innerHTML = `<span class="${cls}">${msg}</span>`;
+  e.scrollTop = e.scrollHeight;
+}
+function addL(id, msg, cls = '') {
+  const e = document.getElementById(id);
+  e.innerHTML += `\n<span class="${cls}">${msg}</span>`;
+  e.scrollTop = e.scrollHeight;
+}
+
+/* ═══════════════════════════════════════════════════
+   01 LOGIT VISUALIZER
+═══════════════════════════════════════════════════ */
+function onLvSlider() {
+  const T = parseFloat(document.getElementById('lv-slider').value);
+  document.getElementById('lv-t').textContent = T.toFixed(2);
+  drawLogit();
+}
+
+function drawLogit() {
+  const T = parseFloat(document.getElementById('lv-slider').value);
+  const setKey = document.getElementById('lv-tokenset').value;
+  const { logits, labels } = TOKEN_SETS[setKey];
+  const probs = softmax(logits, T);
+  const H = entropy(probs);
+  const mx = Math.max(...probs);
+  const mxi = probs.indexOf(mx);
+
+  const cols = probs.map((p, i) =>
+    i === mxi ? 'rgba(0,229,255,.95)' : `rgba(0,229,255,${.1 + p/mx * .6})`
+  );
+
+  const ctx = document.getElementById('lvChart').getContext('2d');
+  if (lvInst) lvInst.destroy();
+  lvInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: probs.map(p => +(p*100).toFixed(2)), backgroundColor: cols, borderColor: 'rgba(0,229,255,.15)', borderWidth: 1, borderRadius: 4 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `P = ${c.parsed.y.toFixed(2)}%` }, backgroundColor: 'rgba(10,12,16,.95)', borderColor: 'rgba(0,229,255,.2)', borderWidth: 1, titleColor: '#00e5ff', bodyColor: '#8090b0', padding: 10 }
+      },
+      scales: {
+        y: { max: 100, ticks: { color: '#5a6080', callback: v => v + '%', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: 'rgba(35,40,64,.8)' }, border: { display: false } },
+        x: { ticks: { color: '#8090b0', font: { family: 'JetBrains Mono', size: 9 } }, grid: { display: false }, border: { display: false } }
+      },
+      animation: { duration: 250 }
+    }
+  });
+
+  const zone = T < 0.4 ? '<span class="zone-tag zg">Greedy</span>' :
+               T < 1.1 ? '<span class="zone-tag zs">Sweet Spot</span>' :
+                         '<span class="zone-tag zh">Hallucination</span>';
+  const hc = H < 1 ? '#5fa8d3' : H < 2 ? '#00e676' : '#ff5252';
+  document.getElementById('lvMets').innerHTML =
+    `<div class="metric-box"><div class="metric-label">Temperature</div><div class="metric-val" style="color:var(--cyan)">${T.toFixed(2)}</div><div class="metric-sub">current</div></div>` +
+    `<div class="metric-box"><div class="metric-label">Entropy</div><div class="metric-val" style="color:${hc}">${H.toFixed(3)}</div><div class="metric-sub">bits</div></div>` +
+    `<div class="metric-box"><div class="metric-label">Top Token</div><div class="metric-val" style="color:var(--gold)">${(mx*100).toFixed(1)}%</div><div class="metric-sub">"${labels[mxi]}"</div></div>` +
+    `<div class="metric-box"><div class="metric-label">Zone</div>${zone}<div class="metric-sub" style="margin-top:4px">interpretation</div></div>`;
+}
+
+/* ═══════════════════════════════════════════════════
+   02 ENTROPY CURVE
+═══════════════════════════════════════════════════ */
+function drawEntropy() {
+  const { logits } = TOKEN_SETS.python;
+  const ts = Array.from({ length: 50 }, (_, i) => +(0.05 + i * 0.05).toFixed(2));
+  const hs = ts.map(T => { const p = softmax(logits, T); return +entropy(p).toFixed(4); });
+
+  const ctx = document.getElementById('ecChart').getContext('2d');
+  if (ecInst) ecInst.destroy();
+  ecInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ts,
+      datasets: [
+        {
+          label: 'H (bits)', data: hs,
+          borderColor: 'transparent',
+          segment: { borderColor: c => { const T = ts[c.p0DataIndex]; return T < 0.4 ? 'rgba(0,230,118,.9)' : T < 1.1 ? 'rgba(0,229,255,.9)' : 'rgba(255,82,82,.9)'; } },
+          borderWidth: 2.5, fill: false, tension: 0.4, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#ffc107'
+        },
+        {
+          data: hs, borderColor: 'transparent',
+          backgroundColor: c => {
+            const g = c.chart.ctx.createLinearGradient(0, 0, c.chart.width, 0);
+            g.addColorStop(0, 'rgba(0,230,118,.07)');
+            g.addColorStop(.22, 'rgba(0,229,255,.07)');
+            g.addColorStop(.6, 'rgba(0,229,255,.07)');
+            g.addColorStop(1, 'rgba(255,82,82,.07)');
+            return g;
+          },
+          fill: true, tension: 0.4, pointRadius: 0
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { title: c => 'T = ' + c[0].label, label: c => 'H = ' + c.parsed.y.toFixed(3) + ' bits' }, backgroundColor: 'rgba(10,12,16,.95)', borderColor: 'rgba(35,40,64,1)', borderWidth: 1, titleColor: '#00e5ff', bodyColor: '#8090b0', padding: 10 }
+      },
+      scales: {
+        x: { ticks: { color: '#5a6080', maxTicksLimit: 10, font: { family: 'JetBrains Mono', size: 9 }, callback: (_, i) => ts[i] % .5 === 0 ? ts[i] : '' }, grid: { color: 'rgba(35,40,64,.6)' }, border: { display: false }, title: { display: true, text: 'Temperature (T)', color: '#5a6080', font: { family: 'JetBrains Mono', size: 9 } } },
+        y: { ticks: { color: '#5a6080', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: 'rgba(35,40,64,.6)' }, border: { display: false }, title: { display: true, text: 'Shannon Entropy H (bits)', color: '#5a6080', font: { family: 'JetBrains Mono', size: 9 } } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   03 SCENARIO A
+═══════════════════════════════════════════════════ */
+function getTempsA() {
+  const step = parseFloat(document.getElementById('a-step').value);
+  const arr = [];
+  for (let t = 0; t <= 2.001; t = Math.round((t + step) * 1000) / 1000) arr.push(+t.toFixed(2));
+  return arr;
+}
+
+function buildGrid() {
+  tempsA = getTempsA();
+  document.getElementById('tGrid').innerHTML = tempsA.map(T => {
+    const k = T.toFixed(2).replace('.', '_');
+    return `<div class="t-row" id="tr${k}">
+      <span class="t-label">T=${T.toFixed(1)}</span>
+      <div class="t-chips">
+        <div class="t-chip" id="tc1${k}">M-A —</div>
+        <div class="t-chip" id="tc2${k}">M-B —</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+const m1 = () => document.getElementById('m1').value;
+const m2 = () => document.getElementById('m2').value;
+const m1n = () => m1().split('/').pop();
+const m2n = () => m2().split('/').pop();
+
+async function runA() {
+  const btn = document.getElementById('btnA');
+  btn.disabled = true; btn.className = 'act-btn active';
+  sAdata = [];
+  buildGrid();
+  document.getElementById('aChartWrap').style.display = 'none';
+  document.getElementById('aSnips').innerHTML = '';
+  setL('logA', '<span class="spin"></span> Starting grid search…', 'l-info');
+  setSt('Scenario A running…', true);
+
+  const topP = parseFloat(document.getElementById('a-tp').value);
+  const maxTok = parseInt(document.getElementById('a-tok').value);
+  const prompt = document.getElementById('promptA').value.trim();
+
+  for (let i = 0; i < tempsA.length; i++) {
+    const T = tempsA[i];
+    const k = T.toFixed(2).replace('.', '_');
+    document.getElementById('tr' + k).className = 't-row running';
+    document.getElementById('tc1' + k).className = 't-chip loading';
+    document.getElementById('tc1' + k).textContent = 'M-A…';
+    document.getElementById('tc2' + k).className = 't-chip loading';
+    document.getElementById('tc2' + k).textContent = 'M-B…';
+    document.getElementById('progA').style.width = (i / tempsA.length * 100) + '%';
+    setL('logA', `<span class="spin"></span> T=${T.toFixed(2)} — ${m1n()} & ${m2n()}…`, 'l-info');
+
+    let r1 = '', r2 = '';
+    try {
+      [r1, r2] = await Promise.all([
+        callModel(m1(), prompt, T, topP, maxTok),
+        callModel(m2(), prompt, T, topP, maxTok)
+      ]);
+    } catch(e) { r1 = r2 = '[ERROR] ' + e.message; }
+
+    const ok1 = synOk(stripF(r1)), ok2 = synOk(stripF(r2));
+    document.getElementById('tc1' + k).className = 't-chip ' + (ok1 ? 'pass' : 'fail');
+    document.getElementById('tc1' + k).textContent = 'M-A ' + (ok1 ? '✓' : '✗');
+    document.getElementById('tc2' + k).className = 't-chip ' + (ok2 ? 'pass' : 'fail');
+    document.getElementById('tc2' + k).textContent = 'M-B ' + (ok2 ? '✓' : '✗');
+    document.getElementById('tr' + k).className = 't-row done';
+    sAdata.push({ T, ok1, ok2, r1, r2 });
+    addL('logA', `  T=${T.toFixed(2)} → M-A ${ok1?'✓ PASS':'✗ FAIL'} | M-B ${ok2?'✓ PASS':'✗ FAIL'}`, ok1 && ok2 ? 'l-ok' : 'l-err');
+  }
+
+  document.getElementById('progA').style.width = '100%';
+  setL('logA', '✓ Scenario A complete', 'l-ok');
+  renderAChart(); renderASnips();
+  btn.disabled = false; btn.className = 'act-btn';
+  setSt('Scenario A done', false);
+}
+
+function renderAChart() {
+  document.getElementById('aChartWrap').style.display = 'block';
+  const ctx = document.getElementById('aChart').getContext('2d');
+  if (aInst) aInst.destroy();
+  aInst = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sAdata.map(r => 'T=' + r.T.toFixed(2)),
+      datasets: [
+        { label: m1n(), data: sAdata.map(r => r.ok1 ? 1 : 0), borderColor: 'var(--m1c)', backgroundColor: 'rgba(0,229,255,.06)', stepped: true, fill: true, borderWidth: 2.5, pointRadius: 6, pointBackgroundColor: sAdata.map(r => r.ok1 ? '#00e676' : '#ff5252') },
+        { label: m2n(), data: sAdata.map(r => r.ok2 ? 1 : 0), borderColor: 'var(--m2c)', backgroundColor: 'rgba(255,193,7,.05)', stepped: true, fill: true, borderWidth: 2.5, pointRadius: 6, borderDash: [5, 3], pointBackgroundColor: sAdata.map(r => r.ok2 ? '#00e676' : '#ff5252') }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8090b0', font: { family: 'JetBrains Mono', size: 10 } } } },
+      scales: {
+        y: { min: -.1, max: 1.2, ticks: { color: '#5a6080', callback: v => v === 1 ? '✓ PASS' : v === 0 ? '✗ FAIL' : '', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: 'rgba(35,40,64,.8)' }, border: { display: false } },
+        x: { ticks: { color: '#8090b0', font: { family: 'JetBrains Mono', size: 9 }, maxTicksLimit: 14 }, grid: { display: false }, border: { display: false } }
+      }
+    }
+  });
+}
+
+function renderASnips() {
+  const n = tempsA.length;
+  const keyIdxs = [0, Math.floor(n*0.3), Math.floor(n*0.65), n-1].filter((v,i,a) => a.indexOf(v) === i);
+  document.getElementById('aSnips').innerHTML = keyIdxs.map(idx => {
+    const r = sAdata[idx]; if (!r) return '';
+    return `<div class="snip-card">
+      <div class="snip-head">
+        <span class="snip-t">T = ${r.T.toFixed(2)}</span>
+        <div class="snip-tags">
+          <span class="stag ${r.ok1?'ok':'ng'}">${m1n()} ${r.ok1?'✓':'✗'}</span>
+          <span class="stag ${r.ok2?'ok':'ng'}">${m2n()} ${r.ok2?'✓':'✗'}</span>
+        </div>
+      </div>
+      <div class="snip-cols">
+        <div class="snip-col">
+          <div class="snip-model" style="color:var(--m1c)">${m1n()}</div>
+          <pre class="snip-code">${esc(r.r1.slice(0,260))}</pre>
+        </div>
+        <div class="snip-col">
+          <div class="snip-model" style="color:var(--m2c)">${m2n()}</div>
+          <pre class="snip-code">${esc(r.r2.slice(0,260))}</pre>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ═══════════════════════════════════════════════════
+   04 SCENARIO B
+═══════════════════════════════════════════════════ */
+function bMets(text, col) {
+  const u = uwr(text), rp = repScore(text);
+  return `<div class="bm"><div class="bm-label">Unique %</div><div class="bm-val" style="color:${u>.6?'var(--green)':'var(--red)'}">${(u*100).toFixed(0)}%</div></div>` +
+         `<div class="bm"><div class="bm-label">Repeat %</div><div class="bm-val" style="color:${rp<.05?'var(--green)':'var(--red)'}">${(rp*100).toFixed(1)}%</div></div>` +
+         `<div class="bm"><div class="bm-label">Words</div><div class="bm-val" style="color:${col}">${text.split(/\s+/).length}</div></div>`;
+}
+
+async function runB() {
+  const btn = document.getElementById('btnB');
+  btn.disabled = true; btn.className = 'act-btn active';
+  setSt('Scenario B running…', true);
+
+  const temp  = parseFloat(document.getElementById('b-t').value);
+  const kTopp = parseFloat(document.getElementById('b-k').value);
+  const pTopp = parseFloat(document.getElementById('b-p').value);
+  const maxTok= parseInt(document.getElementById('b-tok').value);
+  const prompt = document.getElementById('promptB').value.trim();
+
+  document.getElementById('bk-tag').textContent = 'top_p=' + kTopp.toFixed(2);
+  document.getElementById('bp-tag').textContent = 'top_p=' + pTopp.toFixed(2);
+  ['bkOut1','bkOut2','bpOut1','bpOut2'].forEach(id => document.getElementById(id).textContent = 'Loading…');
+  ['bkMets','bpMets'].forEach(id => document.getElementById(id).innerHTML = '');
+
+  try {
+    setL('logB', `<span class="spin"></span> [1/4] ${m1n()} Top-K (top_p=${kTopp.toFixed(2)})…`, 'l-info');
+    const km1 = await callModel(m1(), prompt, temp, kTopp, maxTok);
+    document.getElementById('bkOut1').textContent = km1; addL('logB', '  ✓', 'l-ok');
+
+    setL('logB', `<span class="spin"></span> [2/4] ${m2n()} Top-K (top_p=${kTopp.toFixed(2)})…`, 'l-info');
+    const km2 = await callModel(m2(), prompt, temp, kTopp, maxTok);
+    document.getElementById('bkOut2').textContent = km2; addL('logB', '  ✓', 'l-ok');
+
+    setL('logB', `<span class="spin"></span> [3/4] ${m1n()} Top-P (top_p=${pTopp.toFixed(2)})…`, 'l-info');
+    const pm1 = await callModel(m1(), prompt, temp, pTopp, maxTok);
+    document.getElementById('bpOut1').textContent = pm1; addL('logB', '  ✓', 'l-ok');
+
+    setL('logB', `<span class="spin"></span> [4/4] ${m2n()} Top-P (top_p=${pTopp.toFixed(2)})…`, 'l-info');
+    const pm2 = await callModel(m2(), prompt, temp, pTopp, maxTok);
+    document.getElementById('bpOut2').textContent = pm2; addL('logB', '  ✓', 'l-ok');
+
+    sBdata = { km1, km2, pm1, pm2, kTopp, pTopp };
+    document.getElementById('bkMets').innerHTML = bMets(km1, 'var(--m1c)') + bMets(km2, 'var(--m2c)');
+    document.getElementById('bpMets').innerHTML = bMets(pm1, 'var(--m1c)') + bMets(pm2, 'var(--m2c)');
+    setL('logB', '✓ Scenario B complete', 'l-ok');
+    renderBChart();
+  } catch(e) { setL('logB', '✗ Error: ' + e.message, 'l-err'); }
+
+  btn.disabled = false; btn.className = 'act-btn';
+  setSt('Scenario B done', false);
+}
+
+function renderBChart() {
+  document.getElementById('bChartWrap').style.display = 'block';
+  const { km1, km2, pm1, pm2, kTopp, pTopp } = sBdata;
+  const n1 = m1n(), n2 = m2n();
+  const labs = [`TopK\n${n1}`, `TopK\n${n2}`, `TopP\n${n1}`, `TopP\n${n2}`];
+  const uniq = [km1, km2, pm1, pm2].map(t => +(uwr(t) * 100).toFixed(1));
+  const rep  = [km1, km2, pm1, pm2].map(t => +(repScore(t) * 100).toFixed(2));
+  const bgU  = ['rgba(255,82,82,.7)', 'rgba(255,82,82,.45)', 'rgba(0,229,255,.7)', 'rgba(0,229,255,.45)'];
+
+  const ctx = document.getElementById('bChart').getContext('2d');
+  if (bInst) bInst.destroy();
+  bInst = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labs,
+      datasets: [
+        { label: 'Unique Word % (↑ better)', data: uniq, backgroundColor: bgU, borderRadius: 4, yAxisID: 'y' },
+        { label: 'Repetition % (↓ better)', data: rep, type: 'line', borderColor: 'rgba(255,193,7,.8)', backgroundColor: 'transparent', pointRadius: 8, pointBackgroundColor: bgU, borderWidth: 2, yAxisID: 'y2', tension: .3 }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8090b0', font: { family: 'JetBrains Mono', size: 10 } } } },
+      scales: {
+        y: { ticks: { color: '#5a6080', callback: v => v + '%', font: { family: 'JetBrains Mono', size: 9 } }, grid: { color: 'rgba(35,40,64,.8)' }, border: { display: false }, title: { display: true, text: 'Unique %', color: '#5a6080', font: { family: 'JetBrains Mono', size: 9 } } },
+        y2: { position: 'right', ticks: { color: '#5a6080', callback: v => v + '%', font: { family: 'JetBrains Mono', size: 9 } }, grid: { display: false }, border: { display: false }, title: { display: true, text: 'Rep %', color: '#5a6080', font: { family: 'JetBrains Mono', size: 9 } } },
+        x: { ticks: { color: '#8090b0', font: { family: 'JetBrains Mono', size: 9 } }, grid: { display: false }, border: { display: false } }
+      }
+    }
+  });
+}
+
+/* ═══════════════════════════════════════════════════
+   05 COMPARISON TABLE
+═══════════════════════════════════════════════════ */
+async function runC() {
+  const btn = document.getElementById('btnC');
+  btn.disabled = true; btn.className = 'act-btn active';
+  setSt('Comparison running…', true);
+  document.getElementById('cBody').innerHTML = '<tr><td colspan="6" style="font-size:10px;color:var(--muted);padding:16px"><span class="spin"></span> Fetching…</td></tr>';
+
+  const highT = parseFloat(document.getElementById('c-ht').value);
+  const lowT  = parseFloat(document.getElementById('c-lt').value);
+  const gtp   = parseFloat(document.getElementById('c-gtp').value);
+  const prompt = document.getElementById('promptC').value.trim();
+
+  const cfgs = [
+    { label: `T=${highT.toFixed(2)}, p=1.00`, T: highT, top_p: 1.0 },
+    { label: `T=${lowT.toFixed(2)}, k=1`,     T: lowT,  top_p: gtp },
+  ];
+  const rows = [];
+  try {
+    for (const c of cfgs) {
+      setL('logC', `<span class="spin"></span> ${c.label} — calling each model twice…`, 'l-info');
+      const [a1, a2, b1, b2] = await Promise.all([
+        callModel(m1(), prompt, c.T, c.top_p, 120),
+        callModel(m1(), prompt, c.T, c.top_p, 120),
+        callModel(m2(), prompt, c.T, c.top_p, 120),
+        callModel(m2(), prompt, c.T, c.top_p, 120),
+      ]);
+      const ad = a1.trim() === a2.trim(), bd = b1.trim() === b2.trim();
+      rows.push({ ...c, a: a1, b: b1, ad, bd, note: buildCAnalysis(c, a1, b1, ad, bd) });
+      setL('logC', `✓ ${c.label} — M-A det=${ad?'YES':'NO'} | M-B det=${bd?'YES':'NO'}`, 'l-ok');
+    }
+    document.getElementById('cBody').innerHTML = rows.map(r => `<tr>
+      <td><span class="p-tag">${r.label}</span></td>
+      <td><div class="out-cell">${esc(r.a.slice(0,150))}</div></td>
+      <td><div class="out-cell">${esc(r.b.slice(0,150))}</div></td>
+      <td class="${r.ad?'det-y':'det-n'}">${r.ad?'✓ Same':'✗ Diff'}</td>
+      <td class="${r.bd?'det-y':'det-n'}">${r.bd?'✓ Same':'✗ Diff'}</td>
+      <td style="font-family:var(--serif);font-style:italic;font-size:11px;color:var(--muted)">${r.note}</td>
+    </tr>`).join('');
+    setL('logC', '✓ Comparison complete', 'l-ok');
+  } catch(e) {
+    setL('logC', '✗ Error: ' + e.message, 'l-err');
+    document.getElementById('cBody').innerHTML = `<tr><td colspan="6" style="color:var(--red);font-size:10px;padding:14px">Error: ${esc(e.message)}</td></tr>`;
+  }
+  btn.disabled = false; btn.className = 'act-btn';
+  setSt('Comparison done', false);
+}
+
+/* ═══════════════════════════════════════════════════
+   RUN ALL
+═══════════════════════════════════════════════════ */
+function cScore(text) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  const uniq = uwr(text);
+  const rep = repScore(text);
+  const lenOk = words.length >= 8 && words.length <= 90 ? 1 : 0;
+  const endPunc = /[.!?]["']?$/.test(text.trim()) ? 1 : 0;
+  return (uniq * 0.45) + ((1 - rep) * 0.35) + (lenOk * 0.1) + (endPunc * 0.1);
+}
+
+function buildCAnalysis(cfg, a, b, ad, bd) {
+  const aScore = cScore(a);
+  const bScore = cScore(b);
+  const delta = Math.abs(aScore - bScore);
+
+  const qualityMsg = delta < 0.03
+    ? 'Both models stayed similarly coherent'
+    : (aScore > bScore ? `${m1n()} stayed more coherent` : `${m2n()} stayed more coherent`);
+
+  const detMsg = ad === bd
+    ? (ad ? 'both were deterministic' : 'both were variable')
+    : (ad ? `${m1n()} was more deterministic` : `${m2n()} was more deterministic`);
+
+  const regimeMsg = cfg.T <= 0.25 || cfg.top_p <= 0.05
+    ? 'greedy-like decoding tightened outputs'
+    : 'higher randomness increased variation';
+
+  return `${qualityMsg}; ${detMsg}; ${regimeMsg}.`;
+}
+
+async function runAll() {
+  const btn = document.getElementById('runAllBtn');
+  btn.disabled = true;
+  document.getElementById('gstat').textContent = 'Running all experiments…';
+  document.getElementById('gbar').style.width = '3%';
+  await runA(); document.getElementById('gbar').style.width = '45%';
+  await runB(); document.getElementById('gbar').style.width = '78%';
+  await runC(); document.getElementById('gbar').style.width = '100%';
+  document.getElementById('gstat').textContent = '✓ All experiments complete!';
+  setSt('All done', false);
+  btn.disabled = false;
+}
+
+/* ─── INIT (on lock screen, no app init needed) ─── */
+document.getElementById('lockKey').addEventListener('keydown', e => { if (e.key === 'Enter') connectKey(); });
+document.getElementById('keyModal').addEventListener('click', e => { if (e.target === document.getElementById('keyModal')) closeModal(); });
+</script>
+</body>
+</html>
