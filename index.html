@@ -544,6 +544,39 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
 .det-n { color: var(--red); font-weight: 700; }
 .out-cell { font-family: var(--serif); font-size: 11px; line-height: 1.6; color: #8090b0; max-width: 200px; }
 
+/* ─── COMPARE HISTORY ─── */
+.hist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+.hist-item {
+  background: var(--base);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.hist-meta {
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.hist-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.hist-empty {
+  font-size: 10px;
+  color: var(--muted);
+  padding: 8px 0;
+}
+
 /* ─── CHEAT SHEET ─── */
 .cheat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
 @media(max-width:800px){.cheat-grid{grid-template-columns:1fr}}
@@ -631,7 +664,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
   <div class="lock-glow"></div>
   <div class="lock-inner">
     <div class="lock-badge">LATENT SPACE LAB · HW2</div>
-    <div class="lock-title">Stochastic<br/>Decoding Lab ·Design by Mr. Mony Ratanak</div>
+    <div class="lock-title">Stochastic<br/>Decoding Lab Design by Mr. Mony Ratanak</div>
     <div class="lock-sub">AI Engineer · Advanced · Instructor: Sophal Chan </div>
     <div class="lock-form">
       <label class="lf-label">OpenRouter API Key</label>
@@ -841,6 +874,15 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
           <div class="t-grid" id="tGrid"></div>
           <div class="prog-wrap"><div class="prog-fill" id="progA"></div></div>
           <div class="log-terminal" id="logA">Waiting to run…</div>
+          <div style="margin-top:12px">
+            <div class="param-label" style="margin-bottom:6px">
+              SCENARIO A HISTORY
+              <button class="act-btn" style="padding:4px 10px" onclick="clearScenarioAHistory()">Clear</button>
+            </div>
+            <div class="hist-list" id="aHistList">
+              <div class="hist-empty">No Scenario A history yet.</div>
+            </div>
+          </div>
           <div id="aChartWrap" style="display:none;margin-top:18px">
             <div class="chart-wrap" style="height:200px"><canvas id="aChart" style="height:100%!important"></canvas></div>
           </div>
@@ -924,6 +966,15 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             </div>
           </div>
           <div class="log-terminal" id="logB" style="margin-top:12px">Waiting to run…</div>
+          <div style="margin-top:12px">
+            <div class="param-label" style="margin-bottom:6px">
+              SCENARIO B HISTORY
+              <button class="act-btn" style="padding:4px 10px" onclick="clearScenarioBHistory()">Clear</button>
+            </div>
+            <div class="hist-list" id="bHistList">
+              <div class="hist-empty">No Scenario B history yet.</div>
+            </div>
+          </div>
           <div id="bChartWrap" style="display:none;margin-top:18px">
             <div class="chart-wrap" style="height:240px"><canvas id="bChart" style="height:100%!important"></canvas></div>
           </div>
@@ -978,6 +1029,15 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             </tbody>
           </table>
           <div class="log-terminal" id="logC" style="margin-top:12px">Waiting to run…</div>
+          <div style="margin-top:12px">
+            <div class="param-label" style="margin-bottom:6px">
+              COMPARE HISTORY
+              <button class="act-btn" style="padding:4px 10px" onclick="clearCompareHistory()">Clear</button>
+            </div>
+            <div class="hist-list" id="cHistList">
+              <div class="hist-empty">No compare history yet.</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1059,6 +1119,12 @@ let allMods = [];
 let lvInst = null, ecInst = null, aInst = null, bInst = null;
 let sAdata = [], sBdata = {};
 let tempsA = [];
+const A_HISTORY_KEY = 'latent_space_scenario_a_history_v1';
+const B_HISTORY_KEY = 'latent_space_scenario_b_history_v1';
+const C_HISTORY_KEY = 'latent_space_compare_history_v1';
+let scenarioAHistory = [];
+let scenarioBHistory = [];
+let compareHistory = [];
 
 const OR_URL  = 'https://openrouter.ai/api/v1/chat/completions';
 const OR_MODS = 'https://openrouter.ai/api/v1/models';
@@ -1310,6 +1376,209 @@ function addL(id, msg, cls = '') {
   e.scrollTop = e.scrollHeight;
 }
 
+function saveHistory(key, data) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
+}
+
+function loadHistory(key) {
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function renderScenarioAHistory() {
+  const box = document.getElementById('aHistList');
+  if (!box) return;
+  if (!scenarioAHistory.length) {
+    box.innerHTML = '<div class="hist-empty">No Scenario A history yet.</div>';
+    return;
+  }
+  box.innerHTML = scenarioAHistory.map((h, idx) => `<div class="hist-item">
+      <div class="hist-meta">
+        <div>${esc(h.timeText || 'Unknown time')}</div>
+        <div>${esc(h.models || '')}</div>
+        <div>${esc(h.cfgText || '')}</div>
+      </div>
+      <div class="hist-actions">
+        <button class="act-btn" style="padding:4px 10px" onclick="applyScenarioAHistory(${idx})">Load</button>
+      </div>
+    </div>`).join('');
+}
+
+function applyScenarioAHistory(idx) {
+  const h = scenarioAHistory[idx];
+  if (!h) return;
+  if (typeof h.topP === 'number') {
+    document.getElementById('a-tp').value = h.topP;
+    document.getElementById('a-tp-v').textContent = h.topP.toFixed(2);
+  }
+  if (typeof h.maxTok === 'number') {
+    document.getElementById('a-tok').value = h.maxTok;
+    document.getElementById('a-tok-v').textContent = String(h.maxTok);
+  }
+  if (h.step != null) {
+    document.getElementById('a-step').value = String(h.step);
+    document.getElementById('a-step-v').textContent = String(h.step);
+  }
+  if (h.prompt) document.getElementById('promptA').value = h.prompt;
+
+  sAdata = h.rows || [];
+  buildGrid();
+  document.getElementById('progA').style.width = '100%';
+  renderAChart();
+  renderASnips();
+  setL('logA', `✓ Loaded history: ${h.timeText || ''}`, 'l-ok');
+}
+
+function addScenarioAHistory(entry) {
+  scenarioAHistory.unshift(entry);
+  scenarioAHistory = scenarioAHistory.slice(0, 12);
+  saveHistory(A_HISTORY_KEY, scenarioAHistory);
+  renderScenarioAHistory();
+}
+
+function clearScenarioAHistory() {
+  scenarioAHistory = [];
+  saveHistory(A_HISTORY_KEY, scenarioAHistory);
+  renderScenarioAHistory();
+  setL('logA', '✓ Scenario A history cleared', 'l-ok');
+}
+
+function renderScenarioBHistory() {
+  const box = document.getElementById('bHistList');
+  if (!box) return;
+  if (!scenarioBHistory.length) {
+    box.innerHTML = '<div class="hist-empty">No Scenario B history yet.</div>';
+    return;
+  }
+  box.innerHTML = scenarioBHistory.map((h, idx) => `<div class="hist-item">
+      <div class="hist-meta">
+        <div>${esc(h.timeText || 'Unknown time')}</div>
+        <div>${esc(h.models || '')}</div>
+        <div>${esc(h.cfgText || '')}</div>
+      </div>
+      <div class="hist-actions">
+        <button class="act-btn" style="padding:4px 10px" onclick="applyScenarioBHistory(${idx})">Load</button>
+      </div>
+    </div>`).join('');
+}
+
+function applyScenarioBHistory(idx) {
+  const h = scenarioBHistory[idx];
+  if (!h) return;
+  if (typeof h.temp === 'number') {
+    document.getElementById('b-t').value = h.temp;
+    document.getElementById('b-t-v').textContent = h.temp.toFixed(2);
+  }
+  if (typeof h.kTopp === 'number') {
+    document.getElementById('b-k').value = h.kTopp;
+    document.getElementById('b-k-v').textContent = h.kTopp.toFixed(2);
+  }
+  if (typeof h.pTopp === 'number') {
+    document.getElementById('b-p').value = h.pTopp;
+    document.getElementById('b-p-v').textContent = h.pTopp.toFixed(2);
+  }
+  if (typeof h.maxTok === 'number') {
+    document.getElementById('b-tok').value = h.maxTok;
+    document.getElementById('b-tok-v').textContent = String(h.maxTok);
+  }
+  if (h.prompt) document.getElementById('promptB').value = h.prompt;
+
+  const d = h.data || {};
+  document.getElementById('bkOut1').textContent = d.km1 || '—';
+  document.getElementById('bkOut2').textContent = d.km2 || '—';
+  document.getElementById('bpOut1').textContent = d.pm1 || '—';
+  document.getElementById('bpOut2').textContent = d.pm2 || '—';
+  document.getElementById('bk-tag').textContent = 'top_p=' + (h.kTopp ?? 0).toFixed(2);
+  document.getElementById('bp-tag').textContent = 'top_p=' + (h.pTopp ?? 0).toFixed(2);
+
+  if (d.km1 && d.km2 && d.pm1 && d.pm2) {
+    document.getElementById('bkMets').innerHTML = bMets(d.km1, 'var(--m1c)') + bMets(d.km2, 'var(--m2c)');
+    document.getElementById('bpMets').innerHTML = bMets(d.pm1, 'var(--m1c)') + bMets(d.pm2, 'var(--m2c)');
+    sBdata = d;
+    renderBChart();
+  }
+  setL('logB', `✓ Loaded history: ${h.timeText || ''}`, 'l-ok');
+}
+
+function addScenarioBHistory(entry) {
+  scenarioBHistory.unshift(entry);
+  scenarioBHistory = scenarioBHistory.slice(0, 12);
+  saveHistory(B_HISTORY_KEY, scenarioBHistory);
+  renderScenarioBHistory();
+}
+
+function clearScenarioBHistory() {
+  scenarioBHistory = [];
+  saveHistory(B_HISTORY_KEY, scenarioBHistory);
+  renderScenarioBHistory();
+  setL('logB', '✓ Scenario B history cleared', 'l-ok');
+}
+
+function renderCompareRows(rows) {
+  return rows.map(r => `<tr>
+      <td><span class="p-tag">${r.label}</span></td>
+      <td><div class="out-cell">${esc((r.a || '').slice(0,150))}</div></td>
+      <td><div class="out-cell">${esc((r.b || '').slice(0,150))}</div></td>
+      <td class="${r.ad?'det-y':'det-n'}">${r.ad?'✓ Same':'✗ Diff'}</td>
+      <td class="${r.bd?'det-y':'det-n'}">${r.bd?'✓ Same':'✗ Diff'}</td>
+      <td style="font-family:var(--serif);font-style:italic;font-size:11px;color:var(--muted)">${r.note || ''}</td>
+    </tr>`).join('');
+}
+
+function saveCompareHistory() {
+  saveHistory(C_HISTORY_KEY, compareHistory);
+}
+
+function loadCompareHistory() {
+  compareHistory = loadHistory(C_HISTORY_KEY);
+}
+
+function renderCompareHistory() {
+  const box = document.getElementById('cHistList');
+  if (!box) return;
+  if (!compareHistory.length) {
+    box.innerHTML = '<div class="hist-empty">No compare history yet.</div>';
+    return;
+  }
+
+  box.innerHTML = compareHistory.map((h, idx) => `<div class="hist-item">
+      <div class="hist-meta">
+        <div>${esc(h.timeText || 'Unknown time')}</div>
+        <div>${esc(h.models || '')}</div>
+        <div>${esc(h.cfgText || '')}</div>
+      </div>
+      <div class="hist-actions">
+        <button class="act-btn" style="padding:4px 10px" onclick="applyCompareHistory(${idx})">Load</button>
+      </div>
+    </div>`).join('');
+}
+
+function applyCompareHistory(idx) {
+  const h = compareHistory[idx];
+  if (!h) return;
+  document.getElementById('cBody').innerHTML = renderCompareRows(h.rows || []);
+  setL('logC', `✓ Loaded history: ${h.timeText || ''}`, 'l-ok');
+}
+
+function addCompareHistory(entry) {
+  compareHistory.unshift(entry);
+  compareHistory = compareHistory.slice(0, 12);
+  saveCompareHistory();
+  renderCompareHistory();
+}
+
+function clearCompareHistory() {
+  compareHistory = [];
+  saveCompareHistory();
+  renderCompareHistory();
+  setL('logC', '✓ Compare history cleared', 'l-ok');
+}
+
 /* ═══════════════════════════════════════════════════
    01 LOGIT VISUALIZER
 ═══════════════════════════════════════════════════ */
@@ -1488,6 +1757,17 @@ async function runA() {
 
   document.getElementById('progA').style.width = '100%';
   setL('logA', '✓ Scenario A complete', 'l-ok');
+  addScenarioAHistory({
+    timestamp: Date.now(),
+    timeText: new Date().toLocaleString(),
+    models: `${m1n()} vs ${m2n()}`,
+    cfgText: `top_p=${topP.toFixed(2)}, step=${document.getElementById('a-step').value}, max_tokens=${maxTok}`,
+    prompt: prompt,
+    topP: topP,
+    step: parseFloat(document.getElementById('a-step').value),
+    maxTok: maxTok,
+    rows: sAdata
+  });
   renderAChart(); renderASnips();
   btn.disabled = false; btn.className = 'act-btn';
   setSt('Scenario A done', false);
@@ -1591,6 +1871,18 @@ async function runB() {
     document.getElementById('bkMets').innerHTML = bMets(km1, 'var(--m1c)') + bMets(km2, 'var(--m2c)');
     document.getElementById('bpMets').innerHTML = bMets(pm1, 'var(--m1c)') + bMets(pm2, 'var(--m2c)');
     setL('logB', '✓ Scenario B complete', 'l-ok');
+    addScenarioBHistory({
+      timestamp: Date.now(),
+      timeText: new Date().toLocaleString(),
+      models: `${m1n()} vs ${m2n()}`,
+      cfgText: `T=${temp.toFixed(2)}, top_k_p=${kTopp.toFixed(2)}, top_p=${pTopp.toFixed(2)}, max_tokens=${maxTok}`,
+      prompt: prompt,
+      temp: temp,
+      kTopp: kTopp,
+      pTopp: pTopp,
+      maxTok: maxTok,
+      data: sBdata
+    });
     renderBChart();
   } catch(e) { setL('logB', '✗ Error: ' + e.message, 'l-err'); }
 
@@ -1662,14 +1954,15 @@ async function runC() {
       rows.push({ ...c, a: a1, b: b1, ad, bd, note: buildCAnalysis(c, a1, b1, ad, bd) });
       setL('logC', `✓ ${c.label} — M-A det=${ad?'YES':'NO'} | M-B det=${bd?'YES':'NO'}`, 'l-ok');
     }
-    document.getElementById('cBody').innerHTML = rows.map(r => `<tr>
-      <td><span class="p-tag">${r.label}</span></td>
-      <td><div class="out-cell">${esc(r.a.slice(0,150))}</div></td>
-      <td><div class="out-cell">${esc(r.b.slice(0,150))}</div></td>
-      <td class="${r.ad?'det-y':'det-n'}">${r.ad?'✓ Same':'✗ Diff'}</td>
-      <td class="${r.bd?'det-y':'det-n'}">${r.bd?'✓ Same':'✗ Diff'}</td>
-      <td style="font-family:var(--serif);font-style:italic;font-size:11px;color:var(--muted)">${r.note}</td>
-    </tr>`).join('');
+    document.getElementById('cBody').innerHTML = renderCompareRows(rows);
+    addCompareHistory({
+      timestamp: Date.now(),
+      timeText: new Date().toLocaleString(),
+      models: `${m1n()} vs ${m2n()}`,
+      cfgText: `High-T=${highT.toFixed(2)}, Low-T=${lowT.toFixed(2)}, Greedy top_p=${gtp.toFixed(3)}`,
+      prompt: prompt,
+      rows: rows
+    });
     setL('logC', '✓ Comparison complete', 'l-ok');
   } catch(e) {
     setL('logC', '✗ Error: ' + e.message, 'l-err');
@@ -1725,6 +2018,12 @@ async function runAll() {
 }
 
 /* ─── INIT (on lock screen, no app init needed) ─── */
+scenarioAHistory = loadHistory(A_HISTORY_KEY);
+renderScenarioAHistory();
+scenarioBHistory = loadHistory(B_HISTORY_KEY);
+renderScenarioBHistory();
+loadCompareHistory();
+renderCompareHistory();
 document.getElementById('lockKey').addEventListener('keydown', e => { if (e.key === 'Enter') connectKey(); });
 document.getElementById('keyModal').addEventListener('click', e => { if (e.target === document.getElementById('keyModal')) closeModal(); });
 </script>
