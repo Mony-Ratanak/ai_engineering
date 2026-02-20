@@ -745,7 +745,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
         </div>
         <div class="cfg-field">
           <div class="cfg-label">Model A <span style="color:var(--m1c)">■</span></div>
-          <select id="m1" class="cfg-select" onchange="onMC()"><option value="openai/gpt-4o">openai/gpt-5.2</option></select>
+          <select id="m1" class="cfg-select" onchange="onMC()"><option value="openai/gpt-5.2">openai/gpt-5.2</option></select>
         </div>
         <div class="cfg-field" style="margin-bottom:10px">
           <div class="cfg-label">Model B <span style="color:var(--m2c)">■</span></div>
@@ -1129,6 +1129,10 @@ let compareHistory = [];
 const OR_URL  = 'https://openrouter.ai/api/v1/chat/completions';
 const OR_MODS = 'https://openrouter.ai/api/v1/models';
 const OR_KEY  = 'https://openrouter.ai/api/v1/key';
+// Storage keys for session/cache
+const STORAGE_API_KEY = 'or_api_key'; // persisted to sessionStorage (survives refresh)
+const STORAGE_MODELS  = 'or_models_v1'; // cached models list in localStorage
+const STORAGE_ACTIVE_NAV = 'or_active_nav';
 
 /* Token sets for logit viz */
 const TOKEN_SETS = {
@@ -1184,6 +1188,10 @@ async function connectKey() {
     allMods = d.data.map(m => ({ id: m.id, prov: m.id.split('/')[0], ctx: m.context_length || 0 }))
                     .sort((a, b) => a.id.localeCompare(b.id));
 
+    // Persist API key for this session (survives refresh) and cache models
+    try { sessionStorage.setItem(STORAGE_API_KEY, API_KEY); } catch(_) {}
+    try { localStorage.setItem(STORAGE_MODELS, JSON.stringify(allMods)); } catch(_) {}
+
     // Launch app
     document.getElementById('lockScreen').style.animation = 'fadeOut .4s ease forwards';
     setTimeout(() => {
@@ -1235,6 +1243,7 @@ async function updateKey() {
   API_KEY = k;
   document.getElementById('keyPreview').textContent = k.slice(0,18) + '…';
   closeModal();
+  try { sessionStorage.setItem(STORAGE_API_KEY, API_KEY); } catch(_) {}
   await loadModels();
 }
 
@@ -1245,6 +1254,7 @@ function navTo(id, el) {
   document.getElementById(id).scrollIntoView({ behavior: 'smooth', block: 'start' });
   document.querySelectorAll('.ni').forEach(e => e.classList.remove('active'));
   el.classList.add('active');
+  try { localStorage.setItem(STORAGE_ACTIVE_NAV, id); } catch(_) {}
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1269,6 +1279,7 @@ async function loadModels() {
     allMods = d.data.map(m => ({ id: m.id, prov: m.id.split('/')[0] })).sort((a, b) => a.id.localeCompare(b.id));
     populateSels(allMods);
     document.getElementById('mcount').textContent = allMods.length;
+    try { localStorage.setItem(STORAGE_MODELS, JSON.stringify(allMods)); } catch(_) {}
     btn.textContent = '✓ ' + allMods.length + ' models';
     setSt('Models loaded', false);
   } catch(e) {
@@ -2018,12 +2029,57 @@ async function runAll() {
 }
 
 /* ─── INIT (on lock screen, no app init needed) ─── */
+// Attempt to restore a previous session (key + cached models) to survive refresh
+async function tryRestoreSession() {
+  try {
+    const cachedKey = sessionStorage.getItem(STORAGE_API_KEY);
+    if (!cachedKey) return; // nothing to restore
+    API_KEY = cachedKey;
+
+    // Try to load cached models first to avoid refetching
+    try {
+      const raw = localStorage.getItem(STORAGE_MODELS);
+      if (raw) {
+        const mods = JSON.parse(raw);
+        if (Array.isArray(mods) && mods.length) {
+          allMods = mods;
+          // show app immediately
+          document.getElementById('lockScreen').style.display = 'none';
+          document.getElementById('app').style.display = 'block';
+          document.getElementById('keyPreview').textContent = API_KEY.slice(0,18) + '…';
+          document.getElementById('mcount').textContent = allMods.length;
+          populateSels(allMods);
+          buildGrid(); drawLogit(); drawEntropy(); onMC();
+
+          // restore active nav if present
+          const navId = localStorage.getItem(STORAGE_ACTIVE_NAV);
+          if (navId) {
+            const idx = ['c1','c2','c3','c4','c5','c6'].indexOf(navId);
+            const navEls = document.querySelectorAll('.ni');
+            if (idx >= 0 && navEls[idx]) {
+              navEls.forEach(e => e.classList.remove('active'));
+              navEls[idx].classList.add('active');
+              document.getElementById(navId).scrollIntoView({ behavior: 'auto', block: 'start' });
+            }
+          }
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // If we don't have cached models, fetch them (silently)
+    try { await loadModels(); } catch(_) {}
+  } catch(_) {}
+}
+
 scenarioAHistory = loadHistory(A_HISTORY_KEY);
 renderScenarioAHistory();
 scenarioBHistory = loadHistory(B_HISTORY_KEY);
 renderScenarioBHistory();
 loadCompareHistory();
 renderCompareHistory();
+// try to restore session (if API key was stored in this tab/session)
+tryRestoreSession();
 document.getElementById('lockKey').addEventListener('keydown', e => { if (e.key === 'Enter') connectKey(); });
 document.getElementById('keyModal').addEventListener('click', e => { if (e.target === document.getElementById('keyModal')) closeModal(); });
 </script>
