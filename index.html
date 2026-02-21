@@ -612,7 +612,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
 }
 .param-input:focus { border-color: var(--cyan); }
 
-/* ─── CUSTOM PROMPT BOX ─── */
+/* ─── Fixed rubric prompt BOX ─── */
 .prompt-box {
   background: var(--void); border: 1px solid var(--border2);
   border-radius: 8px; padding: 12px 14px;
@@ -621,6 +621,16 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
   transition: border-color .15s; line-height: 1.7;
 }
 .prompt-box:focus { border-color: var(--cyan); }
+
+/* â”€â”€â”€ READABILITY BOOST â”€â”€â”€ */
+body { font-size: 13px; }
+.sb-label, .cfg-label, .param-label, .ctable th, .bm-label, .ck { font-size: 10px; }
+.ni, .cfg-input, .cfg-select, .param-input, .log-terminal, .hist-meta, .hist-empty { font-size: 12px; }
+.card-title { font-size: 16px; }
+.card-desc, .prompt-box, .out-cell, .b-out-text, .cheat-insight { font-size: 13px; }
+.ctable td { font-size: 12px; }
+.p-tag { font-size: 11px; }
+.cheat-name, .cv { font-size: 13px; }
 
 /* ─── SCROLLBAR GLOBAL ─── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -745,14 +755,14 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
         </div>
         <div class="cfg-field">
           <div class="cfg-label">Model A <span style="color:var(--m1c)">■</span></div>
-          <select id="m1" class="cfg-select" onchange="onMC()"><option value="openai/gpt-5.2">openai/gpt-5.2</option></select>
+          <select id="m1" class="cfg-select" onchange="onMC()"><option value="openai/gpt-4o">openai/gpt-4o</option></select>
         </div>
         <div class="cfg-field" style="margin-bottom:10px">
           <div class="cfg-label">Model B <span style="color:var(--m2c)">■</span></div>
-          <select id="m2" class="cfg-select" onchange="onMC()"><option value="anthropic/claude-sonnet-4.5">anthropic/claude-sonnet-4-5</option></select>
+          <select id="m2" class="cfg-select" onchange="onMC()"><option value="anthropic/claude-3.5-sonnet">anthropic/claude-3.5-sonnet</option></select>
         </div>
         <div class="model-badge"><div class="mb-dot" style="background:var(--m1c)"></div><div class="mb-name" id="mb1">gpt-4o</div><div class="mb-tag">A</div></div>
-        <div class="model-badge"><div class="mb-dot" style="background:var(--m2c)"></div><div class="mb-name" id="mb2">claude-sonnet-4-5</div><div class="mb-tag">B</div></div>
+        <div class="model-badge"><div class="mb-dot" style="background:var(--m2c)"></div><div class="mb-name" id="mb2">claude-3.5-sonnet</div><div class="mb-tag">B</div></div>
         <button class="load-btn" id="loadBtn" onclick="loadModels()" style="margin-top:8px">⟳ &nbsp;Refresh Model List</button>
       </div>
 
@@ -791,7 +801,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
               <div class="card-desc">Live probability distribution — drag temperature to reshape</div>
             </div>
           </div>
-          <button class="act-btn" onclick="drawLogit()">↻ Redraw</button>
+          <button class="act-btn" onclick="drawLogit();drawEntropy()">↻ Redraw</button>
         </div>
         <div class="card-body">
           <!-- Controls row -->
@@ -802,7 +812,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             </div>
             <div class="param-group">
               <div class="param-label">Token Set</div>
-              <select class="param-input" id="lv-tokenset" onchange="drawLogit()" style="padding:6px 8px">
+              <select class="param-input" id="lv-tokenset" onchange="drawLogit();drawEntropy()" style="padding:6px 8px">
                 <option value="python">Python keywords</option>
                 <option value="english">English words</option>
                 <option value="numbers">Numbers / math</option>
@@ -823,7 +833,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             <span class="card-num">02</span>
             <div>
               <div class="card-title">Shannon Entropy vs Temperature</div>
-              <div class="card-desc">Theoretical curve — greedy · sweet spot · hallucination zones</div>
+              <div class="card-desc">Dynamic curve linked to Token Set + Temperature slider in Part 01</div>
             </div>
           </div>
         </div>
@@ -831,6 +841,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
           <div class="chart-wrap" style="height:260px">
             <canvas id="ecChart" style="height:100%!important"></canvas>
           </div>
+          <div class="metrics" id="ecMets"></div>
         </div>
       </div>
 
@@ -841,29 +852,31 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             <span class="card-num">03</span>
             <div>
               <div class="card-title">Scenario A — Logic vs Hallucination</div>
-              <div class="card-desc">Custom prompt · T swept 0.0→2.0 in Δ0.2 · syntax check</div>
+              <div class="card-desc">Fixed rubric prompt · T swept 0.0→2.0 in Δ0.2 · syntax check</div>
             </div>
           </div>
           <button class="act-btn" id="btnA" onclick="runA()">▶ Run</button>
         </div>
         <div class="card-body">
-          <!-- Custom prompt -->
+          <!-- Fixed rubric prompt -->
           <div style="margin-bottom:14px">
-            <div class="param-label" style="margin-bottom:6px">PROMPT A <span style="color:var(--muted)">(editable)</span></div>
-            <textarea id="promptA" class="prompt-box" rows="3">Write a Python function to calculate the Eigenvalues of a 4x4 matrix WITHOUT using NumPy or any external library. Return ONLY valid Python code, no explanation.</textarea>
+            <div class="param-label" style="margin-bottom:6px">PROMPT A <span style="color:var(--muted)">(fixed by rubric)</span></div>
+            <textarea id="promptA" class="prompt-box" rows="3" readonly>Write a Python function to calculate the Eigenvalues of a 4x4 matrix without using NumPy.</textarea>
           </div>
           <!-- Params -->
           <div class="params-row" style="margin-bottom:14px">
             <div class="param-group">
+              <div class="param-label">Top-K (fixed) <span id="a-tk-v">50</span></div>
+              <input type="range" id="a-tk" min="1" max="100" step="1" value="50" disabled/>
+            </div>
+            <div class="param-group">
               <div class="param-label">Top-P (fixed) <span id="a-tp-v">1.00</span></div>
-              <input type="range" id="a-tp" min="0.01" max="1.0" step="0.01" value="1.0" oninput="document.getElementById('a-tp-v').textContent=parseFloat(this.value).toFixed(2)"/>
+              <input type="range" id="a-tp" min="0.01" max="1.0" step="0.01" value="1.0" disabled oninput="document.getElementById('a-tp-v').textContent=parseFloat(this.value).toFixed(2)"/>
             </div>
             <div class="param-group">
               <div class="param-label">T Step <span id="a-step-v">0.2</span></div>
-              <select class="param-input" id="a-step" onchange="document.getElementById('a-step-v').textContent=this.value;buildGrid()" style="padding:6px 8px">
-                <option value="0.2">0.2</option>
-                <option value="0.1">0.1</option>
-                <option value="0.5">0.5</option>
+              <select class="param-input" id="a-step" disabled style="padding:6px 8px">
+                <option value="0.2" selected>0.2</option>
               </select>
             </div>
             <div class="param-group">
@@ -897,30 +910,30 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             <span class="card-num">04</span>
             <div>
               <div class="card-title">Scenario B — Top-K vs Top-P Nucleus</div>
-              <div class="card-desc">Compare sampling strategies · fully configurable</div>
+              <div class="card-desc">Fixed rubric settings: T=0.8, Top-K=5 vs Top-P=0.9</div>
             </div>
           </div>
           <button class="act-btn" id="btnB" onclick="runB()">▶ Run</button>
         </div>
         <div class="card-body">
-          <!-- Custom prompt -->
+          <!-- Fixed rubric prompt -->
           <div style="margin-bottom:14px">
-            <div class="param-label" style="margin-bottom:6px">PROMPT B <span style="color:var(--muted)">(editable)</span></div>
-            <textarea id="promptB" class="prompt-box" rows="2">Summarize the history of Angkor Wat in the style of a 1920s hardboiled detective. Be vivid and creative. Write at least 150 words.</textarea>
+            <div class="param-label" style="margin-bottom:6px">PROMPT B <span style="color:var(--muted)">(fixed by rubric)</span></div>
+            <textarea id="promptB" class="prompt-box" rows="2" readonly>Summarize the history of Angkor Wat in the style of a 1920s hardboiled detective.</textarea>
           </div>
           <!-- Params -->
           <div class="params-row" style="margin-bottom:16px">
             <div class="param-group">
               <div class="param-label">Temperature <span id="b-t-v">0.80</span></div>
-              <input type="range" id="b-t" min="0.01" max="2.0" step="0.01" value="0.8" oninput="document.getElementById('b-t-v').textContent=parseFloat(this.value).toFixed(2)"/>
+              <input type="range" id="b-t" min="0.01" max="2.0" step="0.01" value="0.8" disabled oninput="document.getElementById('b-t-v').textContent=parseFloat(this.value).toFixed(2)"/>
             </div>
             <div class="param-group">
-              <div class="param-label">Top-K top_p <span id="b-k-v">0.50</span></div>
-              <input type="range" id="b-k" min="0.01" max="1.0" step="0.01" value="0.5" oninput="document.getElementById('b-k-v').textContent=parseFloat(this.value).toFixed(2)"/>
+              <div class="param-label">Top-K value <span id="b-k-v">5</span></div>
+              <input type="range" id="b-k" min="1" max="50" step="1" value="5" disabled oninput="document.getElementById('b-k-v').textContent=parseInt(this.value,10)"/>
             </div>
             <div class="param-group">
               <div class="param-label">Top-P value <span id="b-p-v">0.90</span></div>
-              <input type="range" id="b-p" min="0.01" max="1.0" step="0.01" value="0.9" oninput="document.getElementById('b-p-v').textContent=parseFloat(this.value).toFixed(2)"/>
+              <input type="range" id="b-p" min="0.01" max="1.0" step="0.01" value="0.9" disabled oninput="document.getElementById('b-p-v').textContent=parseFloat(this.value).toFixed(2)"/>
             </div>
             <div class="param-group">
               <div class="param-label">Max Tokens <span id="b-tok-v">350</span></div>
@@ -932,7 +945,7 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
             <div class="b-block">
               <div class="b-head">
                 <span class="b-label topk">Top-K (narrow nucleus)</span>
-                <span class="b-tag" id="bk-tag">top_p=0.50</span>
+                <span class="b-tag" id="bk-tag">top_k=5</span>
               </div>
               <div class="b-outputs">
                 <div class="b-out">
@@ -1009,8 +1022,8 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
               <input type="range" id="c-lt" min="0.01" max="0.5" step="0.01" value="0.1" oninput="document.getElementById('c-lt-v').textContent=parseFloat(this.value).toFixed(2)"/>
             </div>
             <div class="param-group">
-              <div class="param-label">Greedy top_p <span id="c-gtp-v">0.01</span></div>
-              <input type="range" id="c-gtp" min="0.001" max="0.1" step="0.001" value="0.01" oninput="document.getElementById('c-gtp-v').textContent=parseFloat(this.value).toFixed(3)"/>
+              <div class="param-label">Greedy Top-K <span id="c-gk-v">1</span></div>
+              <input type="range" id="c-gk" min="1" max="10" step="1" value="1" oninput="document.getElementById('c-gk-v').textContent=parseInt(this.value,10)"/>
             </div>
           </div>
           <table class="ctable">
@@ -1058,34 +1071,34 @@ input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.25); }
               <div class="cheat-icon">💻</div>
               <div class="cheat-name">Coding / Logic</div>
               <div class="cheat-rows">
-                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-c">0.0 – 0.3</span></div>
-                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-c">10 – 20</span></div>
-                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-c">0.85 – 0.95</span></div>
-                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-c">T=0.2, p=0.9</span></div>
+                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-c" id="cs-code-temp">0.0 – 0.3</span></div>
+                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-c" id="cs-code-k">10 – 20</span></div>
+                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-c" id="cs-code-p">0.85 – 0.95</span></div>
+                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-c" id="cs-code-best">T=0.2, p=0.9</span></div>
               </div>
-              <div class="cheat-insight">Low T collapses mass onto the most syntactically valid token — deterministic, fewer errors.</div>
+              <div class="cheat-insight" id="cs-code-insight">Low T collapses mass onto the most syntactically valid token — deterministic, fewer errors.</div>
             </div>
             <div class="cheat-card cc-story" data-icon="📖">
               <div class="cheat-icon">📖</div>
               <div class="cheat-name">Storytelling / Creative</div>
               <div class="cheat-rows">
-                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-s">0.7 – 1.0</span></div>
-                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-s">Avoid — loops</span></div>
-                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-s">0.88 – 0.95</span></div>
-                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-s">T=0.9, p=0.92</span></div>
+                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-s" id="cs-story-temp">0.7 – 1.0</span></div>
+                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-s" id="cs-story-k">Avoid — loops</span></div>
+                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-s" id="cs-story-p">0.88 – 0.95</span></div>
+                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-s" id="cs-story-best">T=0.9, p=0.92</span></div>
               </div>
-              <div class="cheat-insight">High T + Top-P enables rich vocabulary. Top-K causes loops — never use alone for creative tasks.</div>
+              <div class="cheat-insight" id="cs-story-insight">High T + Top-P enables rich vocabulary. Top-K causes loops — never use alone for creative tasks.</div>
             </div>
             <div class="cheat-card cc-rag" data-icon="🔍">
               <div class="cheat-icon">🔍</div>
               <div class="cheat-name">RAG / Factual Q&A</div>
               <div class="cheat-rows">
-                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-r">0.1 – 0.4</span></div>
-                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-r">5 – 15</span></div>
-                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-r">0.80 – 0.90</span></div>
-                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-r">T=0.2, p=0.85</span></div>
+                <div class="cheat-row"><span class="ck">Temperature</span><span class="cv cv-r" id="cs-rag-temp">0.1 – 0.4</span></div>
+                <div class="cheat-row"><span class="ck">Top-K</span><span class="cv cv-r" id="cs-rag-k">5 – 15</span></div>
+                <div class="cheat-row"><span class="ck">Top-P</span><span class="cv cv-r" id="cs-rag-p">0.80 – 0.90</span></div>
+                <div class="cheat-row"><span class="ck">Best Config</span><span class="cv cv-r" id="cs-rag-best">T=0.2, p=0.85</span></div>
               </div>
-              <div class="cheat-insight">Low T grounds answers in retrieved context. Hallucination drops sharply below T=0.3.</div>
+              <div class="cheat-insight" id="cs-rag-insight">Low T grounds answers in retrieved context. Hallucination drops sharply below T=0.3.</div>
             </div>
           </div>
         </div>
@@ -1133,6 +1146,15 @@ const OR_KEY  = 'https://openrouter.ai/api/v1/key';
 const STORAGE_API_KEY = 'or_api_key'; // persisted to sessionStorage (survives refresh)
 const STORAGE_MODELS  = 'or_models_v1'; // cached models list in localStorage
 const STORAGE_ACTIVE_NAV = 'or_active_nav';
+const SCENARIO_A_PROMPT = 'Write a Python function to calculate the Eigenvalues of a 4x4 matrix without using NumPy.';
+const SCENARIO_A_STEP = 0.2;
+const SCENARIO_B_PROMPT = 'Summarize the history of Angkor Wat in the style of a 1920s hardboiled detective.';
+const SCENARIO_B_TEMP = 0.8;
+const SCENARIO_B_TOP_K = 5;
+const SCENARIO_B_TOP_P = 0.9;
+const SCENARIO_C_HIGH_T = 1.8;
+const SCENARIO_C_LOW_T = 0.1;
+const SCENARIO_C_GREEDY_K = 1;
 
 /* Token sets for logit viz */
 const TOKEN_SETS = {
@@ -1206,6 +1228,7 @@ async function connectKey() {
       drawLogit();
       drawEntropy();
       onMC();
+      updateCheatSheet();
     }, 380);
   } catch(e) {
     err.style.display = 'block';
@@ -1310,7 +1333,25 @@ function populateSels(mods) {
     });
     if (!found && mods.length) sel.options[0].selected = true;
   });
+  ensureOpenAIAnthropicPair();
   onMC();
+}
+
+function ensureOpenAIAnthropicPair() {
+  const s1 = document.getElementById('m1');
+  const s2 = document.getElementById('m2');
+  const vals = [...s1.options].map(o => o.value);
+  const firstOpenAI = vals.find(v => v === 'openai/gpt-4o') || vals.find(v => v.startsWith('openai/'));
+  const firstClaude = vals.find(v => v === 'anthropic/claude-3.5-sonnet') ||
+    vals.find(v => v.startsWith('anthropic/') && v.includes('claude-3.5-sonnet')) ||
+    vals.find(v => v.startsWith('anthropic/') && v.includes('claude-sonnet')) ||
+    vals.find(v => v.startsWith('anthropic/'));
+
+  if (!firstOpenAI || !firstClaude) return;
+  if (!s1.value.startsWith('openai/')) s1.value = firstOpenAI;
+  if (!s2.value.startsWith('anthropic/')) s2.value = firstClaude;
+
+  if (s1.value === s2.value) s2.value = firstClaude !== s1.value ? firstClaude : s2.value;
 }
 
 function filterMods() {
@@ -1334,23 +1375,65 @@ function onMC() {
 /* ═══════════════════════════════════════════════════
    API CALL
 ═══════════════════════════════════════════════════ */
-async function callModel(model, prompt, temperature = 1.0, top_p = 1.0, max_tokens = 400) {
-  const isAnth = model.startsWith('anthropic/');
-  const t = isAnth ? Math.min(temperature, 1.0) : Math.min(temperature, 2.0);
-  const r = await fetch(OR_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + API_KEY,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'http://localhost:8080',
-      'X-Title': 'HW2 Latent Space Lab'
-    },
-    body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], temperature: t, top_p, max_tokens })
-  });
-  if (!r.ok) { const tx = await r.text(); throw new Error(r.status + ': ' + tx.slice(0, 120)); }
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
-  return d.choices[0].message.content.trim();
+function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+async function callModel(model, prompt, temperature = 1.0, top_p = 1.0, max_tokens = 400, top_k = null, opts = {}) {
+  const t = Math.max(0, Math.min(temperature, 2.0));
+  const kVal = Number.isFinite(top_k) ? Math.max(1, Math.floor(top_k)) : null;
+  const strictTopK = opts?.strictTopK === true;
+  let dropTopK = false;
+  let lastErr = 'Request failed';
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const body = { model, messages: [{ role: 'user', content: prompt }], temperature: t, top_p, max_tokens };
+    if (!dropTopK && kVal != null) body.top_k = kVal;
+
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), 45000);
+    let r;
+    try {
+      r = await fetch(OR_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + API_KEY,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'http://localhost:8080',
+          'X-Title': 'HW2 Latent Space Lab'
+        },
+        signal: ctl.signal,
+        body: JSON.stringify(body)
+      });
+    } catch (e) {
+      clearTimeout(timer);
+      lastErr = 'network: ' + (e?.message || String(e));
+      if (attempt < 2) { await sleep(500 * (attempt + 1)); continue; }
+      throw new Error(lastErr);
+    }
+    clearTimeout(timer);
+
+    if (r.ok) {
+      const d = await r.json();
+      if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+      return d.choices?.[0]?.message?.content?.trim?.() || '';
+    }
+
+    const tx = await r.text();
+    const raw = tx.slice(0, 240);
+    lastErr = r.status + ': ' + raw;
+    const low = raw.toLowerCase();
+
+    const topKErr = !dropTopK && kVal != null &&
+      (low.includes('top_k') || low.includes('unsupported') || low.includes('invalid parameter') || low.includes('not supported') || low.includes('unrecognized'));
+    if (topKErr && !strictTopK) { dropTopK = true; continue; }
+    if (topKErr && strictTopK) throw new Error(lastErr);
+
+    const transient = r.status === 429 || (r.status >= 500 && r.status <= 599);
+    if (transient && attempt < 2) { await sleep(700 * (attempt + 1)); continue; }
+
+    throw new Error(lastErr);
+  }
+
+  throw new Error(lastErr);
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1375,6 +1458,58 @@ function repScore(t) {
 function synOk(c) { return (c.includes('def ') || c.includes('class ')) && c.includes(':') && c.length > 60; }
 function stripF(c) { return c.replace(/^```[\w]*\n?/m, '').replace(/\n?```$/m, ''); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setTxt(id, v) { const e = document.getElementById(id); if (e) e.textContent = v; }
+
+function updateCheatSheet() {
+  // Coding / Logic from Scenario A
+  const passTs = (sAdata || []).filter(r => r.ok1 && r.ok2).map(r => r.T);
+  const bestSafeT = passTs.length ? Math.max(...passTs) : 0.2;
+  const tMin = Math.max(0.0, Math.min(0.3, bestSafeT - 0.2));
+  const tMax = Math.max(tMin, Math.min(0.6, bestSafeT));
+  const firstFail = (sAdata || []).find(r => !r.ok1 || !r.ok2);
+  setTxt('cs-code-temp', `${tMin.toFixed(1)} - ${tMax.toFixed(1)}`);
+  setTxt('cs-code-k', '50');
+  setTxt('cs-code-p', '1.00');
+  setTxt('cs-code-best', `T=${Math.min(bestSafeT, 0.4).toFixed(1)}, k=50, p=1.0`);
+  setTxt('cs-code-insight',
+    firstFail
+      ? `Scenario A first syntax break appeared near T=${firstFail.T.toFixed(1)}; keep coding below that threshold.`
+      : 'No syntax break observed yet; low temperature remains safest for deterministic code.'
+  );
+
+  // Storytelling from Scenario B outputs
+  const hasB = sBdata && sBdata.km1 && sBdata.km2 && sBdata.pm1 && sBdata.pm2;
+  if (hasB) {
+    const kUni = (uwr(sBdata.km1) + uwr(sBdata.km2)) / 2;
+    const pUni = (uwr(sBdata.pm1) + uwr(sBdata.pm2)) / 2;
+    const kRep = (repScore(sBdata.km1) + repScore(sBdata.km2)) / 2;
+    const pRep = (repScore(sBdata.pm1) + repScore(sBdata.pm2)) / 2;
+    const topPBetter = (pUni - kUni) + (kRep - pRep) > 0;
+    setTxt('cs-story-temp', `${SCENARIO_B_TEMP.toFixed(1)} - 1.0`);
+    setTxt('cs-story-k', `${SCENARIO_B_TOP_K} (${topPBetter ? 'loop-prone' : 'usable'})`);
+    setTxt('cs-story-p', SCENARIO_B_TOP_P.toFixed(2));
+    setTxt('cs-story-best', topPBetter
+      ? `T=${SCENARIO_B_TEMP.toFixed(1)}, p=${SCENARIO_B_TOP_P.toFixed(2)}`
+      : `T=${SCENARIO_B_TEMP.toFixed(1)}, k=${SCENARIO_B_TOP_K}`);
+    setTxt('cs-story-insight', topPBetter
+      ? 'Scenario B favored Top-P for richer wording and less repetition in this run.'
+      : 'Scenario B did not show a strong Top-P gain in this run; inspect samples manually.');
+  }
+
+  // RAG / factual from Compare table (low-T row determinism)
+  const lastRows = compareHistory?.[0]?.rows || [];
+  const lowRow = lastRows.find(r => r.top_k != null);
+  const detBoth = lowRow ? !!(lowRow.ad && lowRow.bd) : null;
+  setTxt('cs-rag-temp', `${SCENARIO_C_LOW_T.toFixed(1)} - 0.3`);
+  setTxt('cs-rag-k', `${SCENARIO_C_GREEDY_K} - 5`);
+  setTxt('cs-rag-p', '0.80 - 0.95');
+  setTxt('cs-rag-best', `T=${SCENARIO_C_LOW_T.toFixed(1)}, k=${SCENARIO_C_GREEDY_K}`);
+  if (detBoth === true) {
+    setTxt('cs-rag-insight', 'Low-T/greedy row was deterministic for both models, which is ideal for factual/RAG style responses.');
+  } else if (detBoth === false) {
+    setTxt('cs-rag-insight', 'Low-T/greedy still showed variance in at least one model; keep prompts constrained for RAG reliability.');
+  }
+}
 
 function setL(id, msg, cls = '') {
   const e = document.getElementById(id);
@@ -1423,26 +1558,26 @@ function renderScenarioAHistory() {
 function applyScenarioAHistory(idx) {
   const h = scenarioAHistory[idx];
   if (!h) return;
-  if (typeof h.topP === 'number') {
-    document.getElementById('a-tp').value = h.topP;
-    document.getElementById('a-tp-v').textContent = h.topP.toFixed(2);
-  }
+  document.getElementById('a-tk').value = 50;
+  document.getElementById('a-tk-v').textContent = '50';
+  document.getElementById('a-tp').value = 1.0;
+  document.getElementById('a-tp-v').textContent = '1.00';
+  document.getElementById('a-step').value = String(SCENARIO_A_STEP);
+  document.getElementById('a-step-v').textContent = String(SCENARIO_A_STEP);
+  document.getElementById('promptA').value = SCENARIO_A_PROMPT;
   if (typeof h.maxTok === 'number') {
     document.getElementById('a-tok').value = h.maxTok;
     document.getElementById('a-tok-v').textContent = String(h.maxTok);
   }
-  if (h.step != null) {
-    document.getElementById('a-step').value = String(h.step);
-    document.getElementById('a-step-v').textContent = String(h.step);
-  }
-  if (h.prompt) document.getElementById('promptA').value = h.prompt;
 
   sAdata = h.rows || [];
   buildGrid();
   document.getElementById('progA').style.width = '100%';
   renderAChart();
   renderASnips();
-  setL('logA', `✓ Loaded history: ${h.timeText || ''}`, 'l-ok');
+  setL('logA', `Loaded history: ${h.timeText || ''}`, 'l-ok');
+  
+  updateCheatSheet();
 }
 
 function addScenarioAHistory(entry) {
@@ -1485,9 +1620,10 @@ function applyScenarioBHistory(idx) {
     document.getElementById('b-t').value = h.temp;
     document.getElementById('b-t-v').textContent = h.temp.toFixed(2);
   }
-  if (typeof h.kTopp === 'number') {
-    document.getElementById('b-k').value = h.kTopp;
-    document.getElementById('b-k-v').textContent = h.kTopp.toFixed(2);
+  const savedTopK = typeof h.kTopK === 'number' ? h.kTopK : (typeof h.kTopp === 'number' ? Math.max(1, Math.round(h.kTopp)) : null);
+  if (typeof savedTopK === 'number') {
+    document.getElementById('b-k').value = savedTopK;
+    document.getElementById('b-k-v').textContent = String(savedTopK);
   }
   if (typeof h.pTopp === 'number') {
     document.getElementById('b-p').value = h.pTopp;
@@ -1504,7 +1640,7 @@ function applyScenarioBHistory(idx) {
   document.getElementById('bkOut2').textContent = d.km2 || '—';
   document.getElementById('bpOut1').textContent = d.pm1 || '—';
   document.getElementById('bpOut2').textContent = d.pm2 || '—';
-  document.getElementById('bk-tag').textContent = 'top_p=' + (h.kTopp ?? 0).toFixed(2);
+  document.getElementById('bk-tag').textContent = 'top_k=' + String(savedTopK ?? 0);
   document.getElementById('bp-tag').textContent = 'top_p=' + (h.pTopp ?? 0).toFixed(2);
 
   if (d.km1 && d.km2 && d.pm1 && d.pm2) {
@@ -1512,8 +1648,11 @@ function applyScenarioBHistory(idx) {
     document.getElementById('bpMets').innerHTML = bMets(d.pm1, 'var(--m1c)') + bMets(d.pm2, 'var(--m2c)');
     sBdata = d;
     renderBChart();
+    updateCheatSheet();
   }
-  setL('logB', `✓ Loaded history: ${h.timeText || ''}`, 'l-ok');
+  setL('logB', `Loaded history: ${h.timeText || ''}`, 'l-ok');
+  
+  updateCheatSheet();
 }
 
 function addScenarioBHistory(entry) {
@@ -1573,7 +1712,9 @@ function applyCompareHistory(idx) {
   const h = compareHistory[idx];
   if (!h) return;
   document.getElementById('cBody').innerHTML = renderCompareRows(h.rows || []);
-  setL('logC', `✓ Loaded history: ${h.timeText || ''}`, 'l-ok');
+  setL('logC', `Loaded history: ${h.timeText || ''}`, 'l-ok');
+  
+  updateCheatSheet();
 }
 
 function addCompareHistory(entry) {
@@ -1597,6 +1738,7 @@ function onLvSlider() {
   const T = parseFloat(document.getElementById('lv-slider').value);
   document.getElementById('lv-t').textContent = T.toFixed(2);
   drawLogit();
+  drawEntropy();
 }
 
 function drawLogit() {
@@ -1649,9 +1791,13 @@ function drawLogit() {
    02 ENTROPY CURVE
 ═══════════════════════════════════════════════════ */
 function drawEntropy() {
-  const { logits } = TOKEN_SETS.python;
+  const setKey = (document.getElementById('lv-tokenset')?.value) || 'python';
+  const { logits } = TOKEN_SETS[setKey] || TOKEN_SETS.python;
   const ts = Array.from({ length: 50 }, (_, i) => +(0.05 + i * 0.05).toFixed(2));
   const hs = ts.map(T => { const p = softmax(logits, T); return +entropy(p).toFixed(4); });
+  const curT = parseFloat((document.getElementById('lv-slider')?.value) || '1');
+  const curIdx = ts.reduce((best, t, i) => Math.abs(t - curT) < Math.abs(ts[best] - curT) ? i : best, 0);
+  const curH = hs[curIdx];
 
   const ctx = document.getElementById('ecChart').getContext('2d');
   if (ecInst) ecInst.destroy();
@@ -1692,20 +1838,35 @@ function drawEntropy() {
       }
     }
   });
+
+  const zone = curT < 0.4 ? '<span class="zone-tag zg">Greedy</span>' :
+               curT < 1.1 ? '<span class="zone-tag zs">Sweet Spot</span>' :
+                            '<span class="zone-tag zh">Hallucination</span>';
+  const ecM = document.getElementById('ecMets');
+  if (ecM) {
+    ecM.innerHTML =
+      `<div class="metric-box"><div class="metric-label">Token Set</div><div class="metric-val" style="color:var(--cyan)">${setKey}</div><div class="metric-sub">from Part 01</div></div>` +
+      `<div class="metric-box"><div class="metric-label">Current T</div><div class="metric-val" style="color:var(--gold)">${curT.toFixed(2)}</div><div class="metric-sub">linked slider</div></div>` +
+      `<div class="metric-box"><div class="metric-label">H(T)</div><div class="metric-val" style="color:var(--green)">${curH.toFixed(3)}</div><div class="metric-sub">bits at current T</div></div>` +
+      `<div class="metric-box"><div class="metric-label">Zone</div>${zone}<div class="metric-sub" style="margin-top:4px">dynamic</div></div>`;
+  }
 }
 
 /* ═══════════════════════════════════════════════════
    03 SCENARIO A
 ═══════════════════════════════════════════════════ */
 function getTempsA() {
-  const step = parseFloat(document.getElementById('a-step').value);
   const arr = [];
-  for (let t = 0; t <= 2.001; t = Math.round((t + step) * 1000) / 1000) arr.push(+t.toFixed(2));
+  for (let t = 0; t <= 2.001; t = Math.round((t + SCENARIO_A_STEP) * 1000) / 1000) arr.push(+t.toFixed(2));
   return arr;
 }
 
 function buildGrid() {
   tempsA = getTempsA();
+  document.getElementById('a-tk').value = 50;
+  document.getElementById('a-tk-v').textContent = '50';
+  document.getElementById('a-step').value = String(SCENARIO_A_STEP);
+  document.getElementById('a-step-v').textContent = String(SCENARIO_A_STEP);
   document.getElementById('tGrid').innerHTML = tempsA.map(T => {
     const k = T.toFixed(2).replace('.', '_');
     return `<div class="t-row" id="tr${k}">
@@ -1733,9 +1894,11 @@ async function runA() {
   setL('logA', '<span class="spin"></span> Starting grid search…', 'l-info');
   setSt('Scenario A running…', true);
 
-  const topP = parseFloat(document.getElementById('a-tp').value);
+  const topP = 1.0;
+  const topK = 50;
   const maxTok = parseInt(document.getElementById('a-tok').value);
-  const prompt = document.getElementById('promptA').value.trim();
+  const prompt = SCENARIO_A_PROMPT;
+  document.getElementById('promptA').value = SCENARIO_A_PROMPT;
 
   for (let i = 0; i < tempsA.length; i++) {
     const T = tempsA[i];
@@ -1749,12 +1912,12 @@ async function runA() {
     setL('logA', `<span class="spin"></span> T=${T.toFixed(2)} — ${m1n()} & ${m2n()}…`, 'l-info');
 
     let r1 = '', r2 = '';
-    try {
-      [r1, r2] = await Promise.all([
-        callModel(m1(), prompt, T, topP, maxTok),
-        callModel(m2(), prompt, T, topP, maxTok)
-      ]);
-    } catch(e) { r1 = r2 = '[ERROR] ' + e.message; }
+    const [m1Res, m2Res] = await Promise.allSettled([
+      callModel(m1(), prompt, T, topP, maxTok, topK, { strictTopK: true }),
+      callModel(m2(), prompt, T, topP, maxTok, topK, { strictTopK: true })
+    ]);
+    r1 = m1Res.status === 'fulfilled' ? m1Res.value : '[ERROR] ' + (m1Res.reason?.message || String(m1Res.reason));
+    r2 = m2Res.status === 'fulfilled' ? m2Res.value : '[ERROR] ' + (m2Res.reason?.message || String(m2Res.reason));
 
     const ok1 = synOk(stripF(r1)), ok2 = synOk(stripF(r2));
     document.getElementById('tc1' + k).className = 't-chip ' + (ok1 ? 'pass' : 'fail');
@@ -1767,19 +1930,25 @@ async function runA() {
   }
 
   document.getElementById('progA').style.width = '100%';
-  setL('logA', '✓ Scenario A complete', 'l-ok');
+  setL('logA', 'Scenario A complete', 'l-ok');
+  const fail1 = sAdata.find(r => !r.ok1);
+  const fail2 = sAdata.find(r => !r.ok2);
+  addL('logA', `  Threshold ${m1n()}: ${fail1 ? `first syntax fail at T=${fail1.T.toFixed(2)}` : 'no fail up to T=2.00'}`, fail1 ? 'l-err' : 'l-ok');
+  addL('logA', `  Threshold ${m2n()}: ${fail2 ? `first syntax fail at T=${fail2.T.toFixed(2)}` : 'no fail up to T=2.00'}`, fail2 ? 'l-err' : 'l-ok');
   addScenarioAHistory({
     timestamp: Date.now(),
     timeText: new Date().toLocaleString(),
     models: `${m1n()} vs ${m2n()}`,
-    cfgText: `top_p=${topP.toFixed(2)}, step=${document.getElementById('a-step').value}, max_tokens=${maxTok}`,
+    cfgText: `top_k=${topK}, top_p=${topP.toFixed(2)}, step=${SCENARIO_A_STEP.toFixed(1)}, max_tokens=${maxTok}`,
     prompt: prompt,
+    topK: topK,
     topP: topP,
-    step: parseFloat(document.getElementById('a-step').value),
+    step: SCENARIO_A_STEP,
     maxTok: maxTok,
     rows: sAdata
   });
   renderAChart(); renderASnips();
+  updateCheatSheet();
   btn.disabled = false; btn.className = 'act-btn';
   setSt('Scenario A done', false);
 }
@@ -1850,24 +2019,32 @@ async function runB() {
   btn.disabled = true; btn.className = 'act-btn active';
   setSt('Scenario B running…', true);
 
-  const temp  = parseFloat(document.getElementById('b-t').value);
-  const kTopp = parseFloat(document.getElementById('b-k').value);
-  const pTopp = parseFloat(document.getElementById('b-p').value);
+  const temp  = SCENARIO_B_TEMP;
+  const kTopK = SCENARIO_B_TOP_K;
+  const pTopp = SCENARIO_B_TOP_P;
   const maxTok= parseInt(document.getElementById('b-tok').value);
-  const prompt = document.getElementById('promptB').value.trim();
+  const prompt = SCENARIO_B_PROMPT;
 
-  document.getElementById('bk-tag').textContent = 'top_p=' + kTopp.toFixed(2);
+  document.getElementById('promptB').value = SCENARIO_B_PROMPT;
+  document.getElementById('b-t').value = String(SCENARIO_B_TEMP);
+  document.getElementById('b-t-v').textContent = SCENARIO_B_TEMP.toFixed(2);
+  document.getElementById('b-k').value = String(SCENARIO_B_TOP_K);
+  document.getElementById('b-k-v').textContent = String(SCENARIO_B_TOP_K);
+  document.getElementById('b-p').value = String(SCENARIO_B_TOP_P);
+  document.getElementById('b-p-v').textContent = SCENARIO_B_TOP_P.toFixed(2);
+
+  document.getElementById('bk-tag').textContent = 'top_k=' + String(kTopK);
   document.getElementById('bp-tag').textContent = 'top_p=' + pTopp.toFixed(2);
   ['bkOut1','bkOut2','bpOut1','bpOut2'].forEach(id => document.getElementById(id).textContent = 'Loading…');
   ['bkMets','bpMets'].forEach(id => document.getElementById(id).innerHTML = '');
 
   try {
-    setL('logB', `<span class="spin"></span> [1/4] ${m1n()} Top-K (top_p=${kTopp.toFixed(2)})…`, 'l-info');
-    const km1 = await callModel(m1(), prompt, temp, kTopp, maxTok);
+    setL('logB', `<span class="spin"></span> [1/4] ${m1n()} Top-K (top_k=${kTopK})…`, 'l-info');
+    const km1 = await callModel(m1(), prompt, temp, 1.0, maxTok, kTopK, { strictTopK: true });
     document.getElementById('bkOut1').textContent = km1; addL('logB', '  ✓', 'l-ok');
 
-    setL('logB', `<span class="spin"></span> [2/4] ${m2n()} Top-K (top_p=${kTopp.toFixed(2)})…`, 'l-info');
-    const km2 = await callModel(m2(), prompt, temp, kTopp, maxTok);
+    setL('logB', `<span class="spin"></span> [2/4] ${m2n()} Top-K (top_k=${kTopK})…`, 'l-info');
+    const km2 = await callModel(m2(), prompt, temp, 1.0, maxTok, kTopK, { strictTopK: true });
     document.getElementById('bkOut2').textContent = km2; addL('logB', '  ✓', 'l-ok');
 
     setL('logB', `<span class="spin"></span> [3/4] ${m1n()} Top-P (top_p=${pTopp.toFixed(2)})…`, 'l-info');
@@ -1878,7 +2055,7 @@ async function runB() {
     const pm2 = await callModel(m2(), prompt, temp, pTopp, maxTok);
     document.getElementById('bpOut2').textContent = pm2; addL('logB', '  ✓', 'l-ok');
 
-    sBdata = { km1, km2, pm1, pm2, kTopp, pTopp };
+    sBdata = { km1, km2, pm1, pm2, kTopK, pTopp };
     document.getElementById('bkMets').innerHTML = bMets(km1, 'var(--m1c)') + bMets(km2, 'var(--m2c)');
     document.getElementById('bpMets').innerHTML = bMets(pm1, 'var(--m1c)') + bMets(pm2, 'var(--m2c)');
     setL('logB', '✓ Scenario B complete', 'l-ok');
@@ -1886,15 +2063,16 @@ async function runB() {
       timestamp: Date.now(),
       timeText: new Date().toLocaleString(),
       models: `${m1n()} vs ${m2n()}`,
-      cfgText: `T=${temp.toFixed(2)}, top_k_p=${kTopp.toFixed(2)}, top_p=${pTopp.toFixed(2)}, max_tokens=${maxTok}`,
+      cfgText: `T=${temp.toFixed(2)}, top_k=${kTopK}, top_p=${pTopp.toFixed(2)}, max_tokens=${maxTok}`,
       prompt: prompt,
       temp: temp,
-      kTopp: kTopp,
+      kTopK: kTopK,
       pTopp: pTopp,
       maxTok: maxTok,
       data: sBdata
     });
     renderBChart();
+    updateCheatSheet();
   } catch(e) { setL('logB', '✗ Error: ' + e.message, 'l-err'); }
 
   btn.disabled = false; btn.className = 'act-btn';
@@ -1903,7 +2081,7 @@ async function runB() {
 
 function renderBChart() {
   document.getElementById('bChartWrap').style.display = 'block';
-  const { km1, km2, pm1, pm2, kTopp, pTopp } = sBdata;
+  const { km1, km2, pm1, pm2 } = sBdata;
   const n1 = m1n(), n2 = m2n();
   const labs = [`TopK\n${n1}`, `TopK\n${n2}`, `TopP\n${n1}`, `TopP\n${n2}`];
   const uniq = [km1, km2, pm1, pm2].map(t => +(uwr(t) * 100).toFixed(1));
@@ -1944,22 +2122,22 @@ async function runC() {
 
   const highT = parseFloat(document.getElementById('c-ht').value);
   const lowT  = parseFloat(document.getElementById('c-lt').value);
-  const gtp   = parseFloat(document.getElementById('c-gtp').value);
+  const gk = parseInt(document.getElementById('c-gk').value, 10);
   const prompt = document.getElementById('promptC').value.trim();
 
   const cfgs = [
-    { label: `T=${highT.toFixed(2)}, p=1.00`, T: highT, top_p: 1.0 },
-    { label: `T=${lowT.toFixed(2)}, k=1`,     T: lowT,  top_p: gtp },
+    { label: `T=${highT.toFixed(2)}, p=1.00`, T: highT, top_p: 1.0, top_k: null },
+    { label: `T=${lowT.toFixed(2)}, k=${gk}`, T: lowT,  top_p: 1.0, top_k: gk },
   ];
   const rows = [];
   try {
     for (const c of cfgs) {
       setL('logC', `<span class="spin"></span> ${c.label} — calling each model twice…`, 'l-info');
       const [a1, a2, b1, b2] = await Promise.all([
-        callModel(m1(), prompt, c.T, c.top_p, 120),
-        callModel(m1(), prompt, c.T, c.top_p, 120),
-        callModel(m2(), prompt, c.T, c.top_p, 120),
-        callModel(m2(), prompt, c.T, c.top_p, 120),
+        callModel(m1(), prompt, c.T, c.top_p, 120, c.top_k),
+        callModel(m1(), prompt, c.T, c.top_p, 120, c.top_k),
+        callModel(m2(), prompt, c.T, c.top_p, 120, c.top_k),
+        callModel(m2(), prompt, c.T, c.top_p, 120, c.top_k),
       ]);
       const ad = a1.trim() === a2.trim(), bd = b1.trim() === b2.trim();
       rows.push({ ...c, a: a1, b: b1, ad, bd, note: buildCAnalysis(c, a1, b1, ad, bd) });
@@ -1970,11 +2148,12 @@ async function runC() {
       timestamp: Date.now(),
       timeText: new Date().toLocaleString(),
       models: `${m1n()} vs ${m2n()}`,
-      cfgText: `High-T=${highT.toFixed(2)}, Low-T=${lowT.toFixed(2)}, Greedy top_p=${gtp.toFixed(3)}`,
+      cfgText: `High-T=${highT.toFixed(2)}, Low-T=${lowT.toFixed(2)}, Greedy top_k=${gk}`,
       prompt: prompt,
       rows: rows
     });
-    setL('logC', '✓ Comparison complete', 'l-ok');
+    setL('logC', 'Comparison complete', 'l-ok');
+    updateCheatSheet();
   } catch(e) {
     setL('logC', '✗ Error: ' + e.message, 'l-err');
     document.getElementById('cBody').innerHTML = `<tr><td colspan="6" style="color:var(--red);font-size:10px;padding:14px">Error: ${esc(e.message)}</td></tr>`;
@@ -2008,7 +2187,7 @@ function buildCAnalysis(cfg, a, b, ad, bd) {
     ? (ad ? 'both were deterministic' : 'both were variable')
     : (ad ? `${m1n()} was more deterministic` : `${m2n()} was more deterministic`);
 
-  const regimeMsg = cfg.T <= 0.25 || cfg.top_p <= 0.05
+  const regimeMsg = cfg.T <= 0.25 || (cfg.top_k != null && cfg.top_k <= 1)
     ? 'greedy-like decoding tightened outputs'
     : 'higher randomness increased variation';
 
@@ -2049,7 +2228,7 @@ async function tryRestoreSession() {
           document.getElementById('keyPreview').textContent = API_KEY.slice(0,18) + '…';
           document.getElementById('mcount').textContent = allMods.length;
           populateSels(allMods);
-          buildGrid(); drawLogit(); drawEntropy(); onMC();
+          buildGrid(); drawLogit(); drawEntropy(); onMC(); updateCheatSheet();
 
           // restore active nav if present
           const navId = localStorage.getItem(STORAGE_ACTIVE_NAV);
@@ -2078,6 +2257,7 @@ scenarioBHistory = loadHistory(B_HISTORY_KEY);
 renderScenarioBHistory();
 loadCompareHistory();
 renderCompareHistory();
+updateCheatSheet();
 // try to restore session (if API key was stored in this tab/session)
 tryRestoreSession();
 document.getElementById('lockKey').addEventListener('keydown', e => { if (e.key === 'Enter') connectKey(); });
