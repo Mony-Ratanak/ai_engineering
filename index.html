@@ -230,8 +230,8 @@ tailwind.config = {
               <p class="text-[11px] text-zinc-500 mt-0.5">Completed</p>
             </div>
             <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-              <p class="text-2xl font-extrabold font-mono text-zinc-100">36</p>
-              <p class="text-[11px] text-zinc-500 mt-0.5">Total</p>
+              <p class="text-2xl font-extrabold font-mono text-zinc-100" id="statTotal">36</p>
+              <p class="text-[11px] text-zinc-500 mt-0.5">Selected</p>
             </div>
             <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <p class="text-2xl font-extrabold font-mono text-emerald-400" id="statAvgScore">—</p>
@@ -266,19 +266,23 @@ tailwind.config = {
           </div>
 
           <!-- Actions -->
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-3 flex-wrap">
             <button id="runAllBtn" onclick="runAll()"
               class="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-bold px-5 py-2.5 rounded-xl text-[12px] tracking-wide transition-all active:scale-[.98]">
               <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-              Run All 36
+              ▶ Run Selected
+            </button>
+            <button id="resumeBtn" onclick="resumeRun()"
+              class="hidden flex items-center gap-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 disabled:opacity-40 disabled:cursor-not-allowed px-4 py-2.5 rounded-xl text-[12px] font-mono transition-all">
+              ↺ Resume
             </button>
             <button onclick="clearResults()"
               class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-[12px] font-mono transition-all">
-              ✕ Clear Results
+              ✕ Clear
             </button>
             <button onclick="rescoreAll()"
               class="bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/20 px-4 py-2.5 rounded-xl text-[12px] font-mono transition-all">
-              ✨ Re-score All
+              ✨ Re-score
             </button>
             <div class="ml-auto text-[11px] font-mono text-zinc-600 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span>
@@ -410,10 +414,11 @@ tailwind.config = {
 // CONSTANTS
 // ══════════════════════════════════════════════
 const LS = {
-  key:     'hw3_api_key',
-  results: 'hw3_results',
-  task:    'hw3_base_task',
-  prompts: 'hw3_custom_prompts',   // per-technique overrides
+  key:      'hw3_api_key',
+  results:  'hw3_results',
+  task:     'hw3_base_task',
+  prompts:  'hw3_custom_prompts',
+  selected: 'hw3_selected_models',
 };
 
 const DEFAULT_TASK = `Write a Python function that takes a list of student records (each record is a dictionary with keys: 'name', 'grade', and 'score'), and returns the top N students sorted by score in descending order. Handle edge cases such as empty lists and N larger than the list size.`;
@@ -423,13 +428,14 @@ const DEFAULT_TASK = `Write a Python function that takes a list of student recor
 // ══════════════════════════════════════════════
 let API_KEY        = '';
 let BASE_TASK      = DEFAULT_TASK;
-let customPrompts  = {};   // { techId: string } — overrides for individual techniques
+let customPrompts  = {};
 let results        = {};
 let running        = false;
 let keyCheckTimer  = null;
 let promptTimer    = null;
 let saveTimer      = null;
 let barChart, latChart, scatChart;
+let selectedModels = new Set(); // filled after MODELS defined
 
 // ══════════════════════════════════════════════
 // MODELS
@@ -437,11 +443,13 @@ let barChart, latChart, scatChart;
 const MODELS = [
   { id:'gpt4o',   name:'GPT-4o',            org:'OpenAI',    type:'closed', free:false, model:'openai/gpt-4o',                                color:'#f59e0b' },
   { id:'claude',  name:'Claude 3.5 Sonnet', org:'Anthropic', type:'closed', free:false, model:'anthropic/claude-3.5-sonnet-20241022',          color:'#fb923c' },
-  { id:'gemini',  name:'Gemini 2.5 Pro',    org:'Google',    type:'closed', free:false, model:'google/gemini-2.5-pro',                        color:'#3b82f6' },
-  { id:'llama',   name:'LLaMA 3.3 70B',     org:'Meta',      type:'open',   free:true,  model:'meta-llama/llama-3.3-70b-instruct:free',       color:'#10b981' },
-  { id:'mistral', name:'Mistral Small 3.1 24B',        org:'Mistral',   type:'open',   free:true,  model:'mistralai/mistral-small-3.1-24b-instruct:free',            color:'#8b5cf6' },
-  { id:'gemma',   name:'Gemma 3 4B',        org:'Google',    type:'open',   free:true,  model:'google/gemma-3-4b-it:free',                    color:'#14b8a6' },
+  { id:'gemini',  name:'Gemini 1.5 Pro',    org:'Google',    type:'closed', free:false, model:'google/gemini-1.5-pro',                        color:'#3b82f6' },
+  { id:'llama',   name:'LLaMA 3.1 70B',     org:'Meta',      type:'open',   free:true,  model:'meta-llama/llama-3.1-70b-instruct:free',       color:'#10b981' },
+  { id:'mistral', name:'Mistral 7B',        org:'Mistral',   type:'open',   free:true,  model:'mistralai/mistral-7b-instruct:free',            color:'#8b5cf6' },
+  { id:'gemma',   name:'Gemma 2 9B',        org:'Google',    type:'open',   free:true,  model:'google/gemma-2-9b-it:free',                    color:'#14b8a6' },
 ];
+// Default: all models selected
+selectedModels = new Set(MODELS.map(m => m.id));
 
 // ══════════════════════════════════════════════
 // TECHNIQUE DEFINITIONS
@@ -529,29 +537,32 @@ function saveSession() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     try {
-      if (API_KEY)  localStorage.setItem(LS.key,     API_KEY);
-      localStorage.setItem(LS.results, JSON.stringify(results));
-      localStorage.setItem(LS.task,    BASE_TASK);
+      if (API_KEY)  localStorage.setItem(LS.key,      API_KEY);
+      localStorage.setItem(LS.results,  JSON.stringify(results));
+      localStorage.setItem(LS.task,     BASE_TASK);
+      localStorage.setItem(LS.selected, JSON.stringify([...selectedModels]));
       if (Object.keys(customPrompts).length)
         localStorage.setItem(LS.prompts, JSON.stringify(customPrompts));
       else
         localStorage.removeItem(LS.prompts);
       flashSaved();
     } catch(e) { console.warn('localStorage write failed:', e); }
-  }, 400); // debounce rapid saves
+  }, 400);
 }
 
 function loadSession() {
   try {
-    const key    = localStorage.getItem(LS.key);
-    const res    = localStorage.getItem(LS.results);
-    const task   = localStorage.getItem(LS.task);
-    const custom = localStorage.getItem(LS.prompts);
+    const key      = localStorage.getItem(LS.key);
+    const res      = localStorage.getItem(LS.results);
+    const task     = localStorage.getItem(LS.task);
+    const custom   = localStorage.getItem(LS.prompts);
+    const sel      = localStorage.getItem(LS.selected);
     if (key)    API_KEY       = key;
     if (task)   BASE_TASK     = task;
     if (res)    results       = JSON.parse(res);
     if (custom) customPrompts = JSON.parse(custom);
-    return !!key;   // true = we have a saved key
+    if (sel)    selectedModels = new Set(JSON.parse(sel));
+    return !!key;
   } catch(e) {
     console.warn('localStorage read failed:', e);
     return false;
@@ -744,25 +755,115 @@ function initApp() {
   initResults();
   renderResultsTable();
   updateStats();
+  updateRunButtons();
+  updateModelStatusBadges();
 }
 
 function renderSidebar() {
-  document.getElementById('modelSidebar').innerHTML = MODELS.map(m => `
-    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-800/40 transition-colors">
-      <span class="w-2 h-2 rounded-full shrink-0" style="background:${m.color}"></span>
-      <div class="min-w-0">
-        <p class="text-[12px] text-zinc-300 truncate font-medium">${m.name}</p>
+  document.getElementById('modelSidebar').innerHTML = MODELS.map(m => {
+    const on = selectedModels.has(m.id);
+    return `
+    <button onclick="toggleModel('${m.id}')" id="model-btn-${m.id}"
+      class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left
+             ${on ? 'bg-zinc-800/70' : 'opacity-40 hover:opacity-60'} hover:bg-zinc-800/60">
+      <!-- Toggle dot -->
+      <span class="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
+        style="border-color:${m.color};background:${on ? m.color : 'transparent'}">
+        ${on ? `<svg class="w-1.5 h-1.5 text-zinc-900" fill="currentColor" viewBox="0 0 8 8"><path d="M1 4l2 2 4-4"/></svg>` : ''}
+      </span>
+      <div class="min-w-0 flex-1">
+        <p class="text-[12px] font-medium truncate ${on ? 'text-zinc-200' : 'text-zinc-500'}">${m.name}</p>
         <p class="text-[10px] text-zinc-600">${m.org}
-          <span class="ml-1 px-1 rounded text-[9px] font-mono font-semibold ${m.type === 'open' ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'}">${m.type}</span>
+          <span class="ml-1 px-1 rounded text-[9px] font-mono font-semibold
+            ${m.type === 'open' ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'}">${m.type}</span>
         </p>
       </div>
-    </div>`).join('');
+      <!-- Error/done status badge -->
+      <span id="model-status-${m.id}" class="shrink-0"></span>
+    </button>`;
+  }).join('');
 
   document.getElementById('techSidebar').innerHTML = TECH_DEFS.map(t => `
-    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-800/40 transition-colors">
-      <span class="text-base leading-none shrink-0" style="color:${t.color}">${t.icon}</span>
+    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg">
+      <span class="text-[15px] leading-none shrink-0" style="color:${t.color}">${t.icon}</span>
       <span class="text-[12px] text-zinc-400 truncate">${t.name}</span>
     </div>`).join('');
+
+  // Render "All / None" toggles above model list
+  const wrap = document.getElementById('modelSidebar');
+  const controls = document.createElement('div');
+  controls.className = 'flex gap-1 mb-1.5';
+  controls.innerHTML = `
+    <button onclick="selectAllModels()" class="flex-1 text-[10px] font-mono text-zinc-500 hover:text-emerald-400 bg-zinc-800/50 hover:bg-zinc-800 rounded-lg py-1 transition-all">All</button>
+    <button onclick="selectNoneModels()" class="flex-1 text-[10px] font-mono text-zinc-500 hover:text-red-400 bg-zinc-800/50 hover:bg-zinc-800 rounded-lg py-1 transition-all">None</button>`;
+  wrap.prepend(controls);
+
+  updateModelStatusBadges();
+  updateRunButtons();
+}
+
+function toggleModel(id) {
+  if (selectedModels.has(id)) {
+    if (selectedModels.size === 1) { showToast('At least one model must be selected', 'warning'); return; }
+    selectedModels.delete(id);
+  } else {
+    selectedModels.add(id);
+  }
+  renderSidebar();
+  updateRunButtons();
+  saveSession();
+}
+
+function selectAllModels()  { MODELS.forEach(m => selectedModels.add(m.id));    renderSidebar(); updateRunButtons(); saveSession(); }
+function selectNoneModels() {
+  // Keep at least first model
+  selectedModels = new Set([MODELS[0].id]);
+  renderSidebar(); updateRunButtons(); saveSession();
+}
+
+function updateModelStatusBadges() {
+  MODELS.forEach(m => {
+    const el = document.getElementById(`model-status-${m.id}`);
+    if (!el) return;
+    const statuses = TECH_DEFS.map(t => results[`${m.id}_${t.id}`]?.status);
+    const done   = statuses.filter(s => s === 'done').length;
+    const errors = statuses.filter(s => s === 'error').length;
+    if (errors > 0)
+      el.innerHTML = `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-red-500/15 text-red-400">${errors} err</span>`;
+    else if (done === TECH_DEFS.length)
+      el.innerHTML = `<span class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">✓</span>`;
+    else if (done > 0)
+      el.innerHTML = `<span class="text-[9px] font-mono text-zinc-600">${done}/6</span>`;
+    else
+      el.innerHTML = '';
+  });
+}
+
+function updateRunButtons() {
+  const sel   = [...selectedModels];
+  const total = sel.length * TECH_DEFS.length;
+  const done  = sel.reduce((acc, mid) =>
+    acc + TECH_DEFS.filter(t => results[`${mid}_${t.id}`]?.status === 'done').length, 0);
+  const errors = sel.reduce((acc, mid) =>
+    acc + TECH_DEFS.filter(t => results[`${mid}_${t.id}`]?.status === 'error').length, 0);
+  const pending = total - done - errors;
+
+  const runBtn    = document.getElementById('runAllBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  const totalEl   = document.getElementById('statTotal');
+
+  if (runBtn)   runBtn.textContent = `▶ Run ${sel.length === MODELS.length ? 'All' : 'Selected'} (${total})`;
+  if (totalEl)  totalEl.textContent = total;
+  if (resumeBtn) {
+    if (errors > 0 || (done > 0 && pending > 0)) {
+      resumeBtn.classList.remove('hidden');
+      resumeBtn.textContent = errors > 0
+        ? `↺ Retry Errors (${errors})`
+        : `↺ Resume (${pending} left)`;
+    } else {
+      resumeBtn.classList.add('hidden');
+    }
+  }
 }
 
 // ══════════════════════════════════════════════
@@ -1003,55 +1104,76 @@ async function callAPI(modelId, techId) {
 }
 
 // ══════════════════════════════════════════════
-// RUN ALL
+// RUN ALL / RESUME
 // ══════════════════════════════════════════════
-async function runAll() {
+async function runAll()    { await _runCombos(false); }
+async function resumeRun() { await _runCombos(true);  }
+
+async function _runCombos(resumeMode) {
   if (running) return;
+
+  // Build combo list: selected models × all techniques
+  // resumeMode  = skip done, retry errors+pending
+  // !resumeMode = skip done only (never re-run completed work)
+  const combos = [];
+  MODELS.filter(m => selectedModels.has(m.id)).forEach(m => {
+    TECH_DEFS.forEach(t => {
+      const k = `${m.id}_${t.id}`;
+      const st = results[k]?.status;
+      if (st === 'done') return;                         // always skip completed
+      if (resumeMode && st !== 'error' && st !== 'pending') return;
+      combos.push({ m, t });
+    });
+  });
+
+  if (combos.length === 0) {
+    showToast('Nothing to run — all selected experiments are done ✓', 'neutral');
+    return;
+  }
+
   running = true;
-  const btn = document.getElementById('runAllBtn');
-  btn.disabled = true;
-  btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Running…`;
+  const runBtn    = document.getElementById('runAllBtn');
+  const resumeBtn = document.getElementById('resumeBtn');
+  runBtn.disabled    = true;
+  if (resumeBtn) resumeBtn.disabled = true;
+  runBtn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Running…`;
   document.getElementById('progressWrap').classList.remove('hidden');
 
-  const combos = [];
-  MODELS.forEach(m => TECH_DEFS.forEach(t => combos.push({ m, t })));
   let done = 0;
-
   for (const { m, t } of combos) {
     const k = `${m.id}_${t.id}`;
     results[k] = { ...results[k], status:'running' };
     renderResultsTable();
+    updateModelStatusBadges();
     setProgress(done, combos.length, `${m.name} × ${t.name}`);
     try {
-      const r       = await callAPI(m.id, t.id);
-      const aScore  = autoScore(r.response);
-      results[k] = {
-        ...results[k],
-        status    : 'done',
-        response  : r.response,
-        latency   : r.latency,
-        wordCount : r.wordCount,
-        autoScore : aScore,
-        score     : aScore,
-      };
+      const r      = await callAPI(m.id, t.id);
+      const aScore = autoScore(r.response);
+      results[k]   = { ...results[k], status:'done', response:r.response, latency:r.latency, wordCount:r.wordCount, autoScore:aScore, score:aScore };
     } catch (e) {
       results[k] = { ...results[k], status:'error', response:`Error: ${e.message}` };
       showToast(`${m.name} × ${t.name}: ${e.message}`, 'error');
     }
     done++;
-    setProgress(done, combos.length, done === combos.length ? '✓ All done!' : `Next: ${combos[done]?.m?.name}`);
+    setProgress(done, combos.length, done === combos.length ? '✓ Done!' : `Next: ${combos[done]?.m?.name} × ${combos[done]?.t?.name}`);
     renderResultsTable();
+    updateModelStatusBadges();
     updateStats();
     saveSession();
-    // Free models are rate-limited — give them more breathing room
     const delay = m.free ? 1800 : 350;
     await new Promise(r => setTimeout(r, delay));
   }
 
   running = false;
-  btn.disabled = false;
-  btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Run All 36`;
-  showToast('All 36 experiments complete!', 'success');
+  const errCount = Object.values(results).filter(r => r.status === 'error').length;
+  runBtn.disabled    = false;
+  if (resumeBtn) resumeBtn.disabled = false;
+  runBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> ▶ Run Selected`;
+  updateRunButtons();
+  if (errCount > 0)
+    showToast(`Finished — ${errCount} error(s). Click "Retry Errors" to re-run them.`, 'warning');
+  else
+    showToast(`All ${done} experiments complete!`, 'success');
   renderCharts();
 }
 
