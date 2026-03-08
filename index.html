@@ -276,6 +276,10 @@ tailwind.config = {
               class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-[12px] font-mono transition-all">
               ✕ Clear Results
             </button>
+            <button onclick="rescoreAll()"
+              class="bg-blue-500/15 hover:bg-blue-500/25 text-blue-400 border border-blue-500/20 px-4 py-2.5 rounded-xl text-[12px] font-mono transition-all">
+              ✨ Re-score All
+            </button>
             <div class="ml-auto text-[11px] font-mono text-zinc-600 flex items-center gap-1.5">
               <span class="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span>
               temperature=0.0
@@ -319,7 +323,7 @@ tailwind.config = {
                   <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Type</th>
                   <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Technique</th>
                   <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Status</th>
-                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Score</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Score /10</th>
                   <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Latency</th>
                   <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Words</th>
                   <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Response</th>
@@ -431,12 +435,12 @@ let barChart, latChart, scatChart;
 // MODELS
 // ══════════════════════════════════════════════
 const MODELS = [
-  { id:'gpt4o',   name:'GPT-4o',            org:'OpenAI',    type:'closed', model:'openai/gpt-4o',                          color:'#f59e0b' },
-  { id:'claude',  name:'Claude 3.5 Sonnet', org:'Anthropic', type:'closed', model:'anthropic/claude-3.5-sonnet',            color:'#fb923c' },
-  { id:'gemini',  name:'Gemini 1.5 Pro',    org:'Google',    type:'closed', model:'google/gemini-pro-1.5',                  color:'#3b82f6' },
-  { id:'llama',   name:'LLaMA 3.1 70B',     org:'Meta',      type:'open',   model:'meta-llama/llama-3.1-70b-instruct:free', color:'#10b981' },
-  { id:'mistral', name:'Mistral 7B',        org:'Mistral',   type:'open',   model:'mistralai/mistral-7b-instruct:free',     color:'#8b5cf6' },
-  { id:'gemma',   name:'Gemma 2 9B',        org:'Google',    type:'open',   model:'google/gemma-2-9b-it:free',              color:'#14b8a6' },
+  { id:'gpt4o',   name:'GPT-4o',            org:'OpenAI',    type:'closed', free:false, model:'openai/gpt-4o',                                color:'#f59e0b' },
+  { id:'claude',  name:'Claude 3.5 Sonnet', org:'Anthropic', type:'closed', free:false, model:'anthropic/claude-3.5-sonnet-20241022',          color:'#fb923c' },
+  { id:'gemini',  name:'Gemini 2.5 Pro',    org:'Google',    type:'closed', free:false, model:'google/gemini-2.5-pro',                        color:'#3b82f6' },
+  { id:'llama',   name:'LLaMA 3.3 70B',     org:'Meta',      type:'open',   free:true,  model:'meta-llama/llama-3.3-70b-instruct:free',       color:'#10b981' },
+  { id:'mistral', name:'Mistral Small 3.1 24B',        org:'Mistral',   type:'open',   free:true,  model:'mistralai/mistral-small-3.1-24b-instruct:free',            color:'#8b5cf6' },
+  { id:'gemma',   name:'Gemma 3 4B',        org:'Google',    type:'open',   free:true,  model:'google/gemma-3-4b-it:free',                    color:'#14b8a6' },
 ];
 
 // ══════════════════════════════════════════════
@@ -872,46 +876,130 @@ function resetAllPrompts() {
 }
 
 // ══════════════════════════════════════════════
+// AUTO-SCORER  (pure JS, no API call needed)
+// Evaluates Python code quality on 10 criteria → 1–10
+// ══════════════════════════════════════════════
+function autoScore(response) {
+  if (!response || response.trim().length < 30) return 1;
+  const r = response;
+  let pts = 0;
+
+  const checks = [
+    // Core code structure
+    { w:2.0, ok: /def\s+\w+\s*\(/.test(r) },                                          // function defined
+    { w:0.5, ok: /return\b/.test(r) },                                                  // has return
+    // Documentation
+    { w:1.0, ok: /"""[\s\S]{10,}"""|'''[\s\S]{10,}'''/.test(r) },                     // docstring
+    { w:0.5, ok: /#\s*\w{4,}/.test(r) },                                               // inline comments
+    // Type hints
+    { w:1.0, ok: /def\s+\w+\s*\([^)]*:\s*(list|dict|str|int|float|bool|None|List|Dict|Optional|Any)/.test(r) || /\)\s*->\s*\w/.test(r) },
+    // Edge cases
+    { w:1.0, ok: /if\s+(not\s+\w+|\w+\s*==\s*\[\]|len\s*\()/.test(r) },             // empty list check
+    { w:1.0, ok: /min\s*\(\s*(n|N)\s*,\s*len\s*\(|\bN\b[^,]*>\s*len\b|if\s+n\s*>=\s*len/.test(r) }, // N > len check
+    // Correct algorithm
+    { w:1.5, ok: /sorted\s*\(|\.sort\s*\(/.test(r) },                                 // sorting used
+    { w:1.0, ok: /reverse\s*=\s*True|key\s*=\s*(lambda|operator)/.test(r) },         // descending + key
+    { w:0.5, ok: /\[\s*:\s*(n|N)\s*\]|\bheapq\b|\bnlargest\b/.test(r) },             // top N slice
+  ];
+
+  checks.forEach(c => { if (c.ok) pts += c.w; });
+  // Max possible = 10.0 — clamp and round to 1 decimal
+  const raw = Math.min(10, Math.max(1, pts));
+  return Math.round(raw * 10) / 10;
+}
+
+// Build reasoning string explaining the auto score
+function autoScoreReason(response) {
+  if (!response || response.trim().length < 30) return 'No code found';
+  const r = response;
+  const checks = [
+    { label:'Function defined',    ok: /def\s+\w+\s*\(/.test(r) },
+    { label:'Return statement',    ok: /return\b/.test(r) },
+    { label:'Docstring',           ok: /"""[\s\S]{10,}"""|'''[\s\S]{10,}'''/.test(r) },
+    { label:'Type hints',          ok: /def\s+\w+\s*\([^)]*:\s*(list|dict|str|int|float|bool|None|List|Dict|Optional)/.test(r) || /\)\s*->\s*\w/.test(r) },
+    { label:'Empty list check',    ok: /if\s+(not\s+\w+|\w+\s*==\s*\[\]|len\s*\()/.test(r) },
+    { label:'N > len edge case',   ok: /min\s*\(\s*(n|N)\s*,\s*len\s*\(|\bN\b[^,]*>\s*len\b/.test(r) },
+    { label:'Sorting',             ok: /sorted\s*\(|\.sort\s*\(/.test(r) },
+    { label:'Descending order',    ok: /reverse\s*=\s*True|key\s*=\s*(lambda|operator)/.test(r) },
+    { label:'Top N slice',         ok: /\[\s*:\s*(n|N)\s*\]|\bheapq\b|\bnlargest\b/.test(r) },
+  ];
+  return checks.map(c => `${c.ok ? '✓' : '✗'} ${c.label}`).join('\n');
+}
+
+// ══════════════════════════════════════════════
 // RESULTS STATE
 // ══════════════════════════════════════════════
 function initResults() {
   MODELS.forEach(m => TECH_DEFS.forEach(t => {
     const k = `${m.id}_${t.id}`;
-    if (!results[k]) results[k] = { status:'pending', response:'', latency:null, wordCount:0, score:null };
+    if (!results[k]) results[k] = {
+      status:'pending', response:'', latency:null, wordCount:0,
+      autoScore:null, score:null,
+    };
   }));
 }
 
 // ══════════════════════════════════════════════
-// API CALL
+// API CALL — with retry on 429 rate-limit
 // ══════════════════════════════════════════════
 async function callAPI(modelId, techId) {
   const m      = MODELS.find(x => x.id === modelId);
   const prompt = getPrompt(techId);
-  const t0     = performance.now();
-  const res    = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method : 'POST',
-    headers: {
-      'Content-Type' : 'application/json',
-      'Authorization': `Bearer ${API_KEY}`,
-      'HTTP-Referer'  : 'https://hw3-lab.local',
-      'X-Title'       : 'HW3 Prompt Engineering Lab',
-    },
-    body: JSON.stringify({
-      model      : m.model,
-      temperature: 0.0,
-      max_tokens : 1200,
-      messages   : [{ role:'user', content:prompt }],
-    }),
-  });
-  const data    = await res.json();
-  const latency = ((performance.now() - t0) / 1000).toFixed(2);
-  if (data.error) throw new Error(data.error.message || `HTTP ${res.status}`);
-  const text = data.choices?.[0]?.message?.content || '';
-  return {
-    response  : text,
-    latency   : parseFloat(latency),
-    wordCount : text.trim().split(/\s+/).filter(Boolean).length,
-  };
+
+  const MAX_RETRIES = 3;
+  let attempt = 0;
+
+  while (attempt < MAX_RETRIES) {
+    const t0  = performance.now();
+    let res, data;
+    try {
+      res  = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method : 'POST',
+        headers: {
+          'Content-Type' : 'application/json',
+          'Authorization': `Bearer ${API_KEY}`,
+          'HTTP-Referer'  : 'https://hw3-lab.local',
+          'X-Title'       : 'HW3 Prompt Engineering Lab',
+        },
+        body: JSON.stringify({
+          model      : m.model,
+          temperature: 0.0,
+          max_tokens : 1200,
+          messages   : [{ role:'user', content:prompt }],
+        }),
+      });
+      data = await res.json();
+    } catch(netErr) {
+      throw new Error(`Network error: ${netErr.message}`);
+    }
+
+    // Rate-limited → wait and retry
+    if (res.status === 429) {
+      const wait = (attempt + 1) * (m.free ? 8000 : 4000);
+      showToast(`${m.name} rate-limited — retrying in ${wait/1000}s… (${attempt+1}/${MAX_RETRIES})`, 'warning');
+      await new Promise(r => setTimeout(r, wait));
+      attempt++;
+      continue;
+    }
+
+    // Other API error
+    if (!res.ok || data?.error) {
+      const reason = data?.error?.message || data?.error?.code || `HTTP ${res.status}`;
+      throw new Error(reason);
+    }
+
+    const latency = ((performance.now() - t0) / 1000).toFixed(2);
+    const text    = data.choices?.[0]?.message?.content || '';
+    if (!text) throw new Error('Empty response from model');
+
+    return {
+      response  : text,
+      latency   : parseFloat(latency),
+      wordCount : text.trim().split(/\s+/).filter(Boolean).length,
+    };
+  }
+
+  throw new Error(`Failed after ${MAX_RETRIES} retries (rate limit)`);
 }
 
 // ══════════════════════════════════════════════
@@ -935,8 +1023,17 @@ async function runAll() {
     renderResultsTable();
     setProgress(done, combos.length, `${m.name} × ${t.name}`);
     try {
-      const r    = await callAPI(m.id, t.id);
-      results[k] = { ...results[k], status:'done', response:r.response, latency:r.latency, wordCount:r.wordCount };
+      const r       = await callAPI(m.id, t.id);
+      const aScore  = autoScore(r.response);
+      results[k] = {
+        ...results[k],
+        status    : 'done',
+        response  : r.response,
+        latency   : r.latency,
+        wordCount : r.wordCount,
+        autoScore : aScore,
+        score     : aScore,
+      };
     } catch (e) {
       results[k] = { ...results[k], status:'error', response:`Error: ${e.message}` };
       showToast(`${m.name} × ${t.name}: ${e.message}`, 'error');
@@ -946,7 +1043,9 @@ async function runAll() {
     renderResultsTable();
     updateStats();
     saveSession();
-    await new Promise(r => setTimeout(r, 280));
+    // Free models are rate-limited — give them more breathing room
+    const delay = m.free ? 1800 : 350;
+    await new Promise(r => setTimeout(r, delay));
   }
 
   running = false;
@@ -966,7 +1065,7 @@ function setProgress(done, total, msg) {
 function clearResults() {
   if (!confirm('Clear all experiment results? API key and prompts are kept.')) return;
   MODELS.forEach(m => TECH_DEFS.forEach(t => {
-    results[`${m.id}_${t.id}`] = { status:'pending', response:'', latency:null, wordCount:0, score:null };
+    results[`${m.id}_${t.id}`] = { status:'pending', response:'', latency:null, wordCount:0, autoScore:null, score:null };
   }));
   renderResultsTable();
   updateStats();
@@ -974,27 +1073,59 @@ function clearResults() {
   showToast('Results cleared', 'neutral');
 }
 
+function rescoreAll() {
+  let count = 0;
+  MODELS.forEach(m => TECH_DEFS.forEach(t => {
+    const k = `${m.id}_${t.id}`;
+    if (results[k]?.status === 'done' && results[k]?.response) {
+      const s = autoScore(results[k].response);
+      results[k].autoScore = s;
+      results[k].score     = s;
+      count++;
+    }
+  }));
+  renderResultsTable();
+  updateStats();
+  saveSession();
+  showToast(`Re-scored ${count} responses`, 'success');
+}
+
 // ══════════════════════════════════════════════
 // RESULTS TABLE
 // ══════════════════════════════════════════════
+function scoreClass(s) {
+  if (!s && s !== 0) return '';
+  return s >= 7 ? 's-hi' : s >= 5 ? 's-md' : 's-lo';
+}
+
 function renderResultsTable() {
   const tbody = document.getElementById('resultsTbody');
   if (!tbody) return;
   let n = 1, html = '';
   MODELS.forEach(m => {
     TECH_DEFS.forEach(t => {
-      const k = `${m.id}_${t.id}`;
-      const r = results[k] || { status:'pending', latency:null, wordCount:0, score:null, response:'' };
+      const k  = `${m.id}_${t.id}`;
+      const r  = results[k] || { status:'pending', latency:null, wordCount:0, autoScore:null, score:null, response:'' };
+
       const statusUI = {
         pending: `<span class="text-zinc-700">○ pending</span>`,
         running: `<span class="text-amber-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse-dot inline-block"></span>running</span>`,
         done   : `<span class="text-emerald-400">✓ done</span>`,
         error  : `<span class="text-red-400">✗ error</span>`,
       }[r.status] || '';
-      const sc = r.score ? (r.score >= 7 ? 's-hi' : r.score >= 5 ? 's-md' : 's-lo') : '';
+
+      // Score cell — auto only
+      const scoreCell = r.autoScore != null
+        ? `<div class="flex items-center gap-1.5">
+             <span class="text-[14px] font-bold font-mono ${scoreClass(r.autoScore)} px-2 py-0.5 rounded-lg">${r.autoScore}</span>
+             <span class="text-[9px] font-mono text-zinc-600">/10</span>
+             <button onclick="showScoreReason('${k}')" class="text-[9px] font-mono text-zinc-600 hover:text-amber-400 transition-colors underline decoration-dotted">why?</button>
+           </div>`
+        : `<span class="text-zinc-700 text-[11px] font-mono">—</span>`;
+
       html += `
       <tr class="result-row transition-colors">
-        <td class="px-3 py-2 text-zinc-600">${n++}</td>
+        <td class="px-3 py-2 text-zinc-600 text-[11px]">${n++}</td>
         <td class="px-3 py-2">
           <div class="flex items-center gap-1.5">
             <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${m.color}"></span>
@@ -1006,17 +1137,12 @@ function renderResultsTable() {
         </td>
         <td class="px-3 py-2 text-zinc-400 text-[11px]">${t.name}</td>
         <td class="px-3 py-2 text-[11px]">${statusUI}</td>
-        <td class="px-3 py-2">
-          <input type="number" min="1" max="10" value="${r.score || ''}" placeholder="—"
-            class="w-12 text-center bg-zinc-800 border border-zinc-700 focus:border-amber-500 rounded-lg px-1 py-1 text-[11px] font-mono text-zinc-100 outline-none transition-colors ${sc} ${r.status !== 'done' ? 'opacity-30 cursor-not-allowed' : ''}"
-            onchange="setScore('${k}', this.value)"
-            ${r.status !== 'done' ? 'disabled' : ''}/>
-        </td>
+        <td class="px-3 py-2">${scoreCell}</td>
         <td class="px-3 py-2 text-teal-400 text-[11px]">${r.latency != null ? r.latency + 's' : '—'}</td>
         <td class="px-3 py-2 text-blue-400 text-[11px]">${r.wordCount || '—'}</td>
         <td class="px-3 py-2">
           ${r.response
-            ? `<p class="max-w-[200px] text-[10px] text-zinc-500 truncate">${esc(r.response.substring(0, 80))}</p>
+            ? `<p class="max-w-[180px] text-[10px] text-zinc-500 truncate">${esc(r.response.substring(0, 80))}</p>
                <button class="text-[10px] text-amber-400 hover:text-amber-300 mt-0.5 font-mono transition-colors" onclick="showModal('${k}')">view full ↗</button>`
             : `<span class="text-zinc-700 text-[10px]">not run yet</span>`}
         </td>
@@ -1029,14 +1155,20 @@ function renderResultsTable() {
   if (el) el.textContent = `${done}/36`;
 }
 
-function setScore(key, val) {
-  if (!results[key]) return;
-  const v = parseInt(val);
-  results[key].score = (v >= 1 && v <= 10) ? v : null;
-  updateStats();
-  renderResultsTable();
-  saveSession();
+// Show score reason modal
+function showScoreReason(key) {
+  const r = results[key]; if (!r) return;
+  const [mId, tId] = key.split('_');
+  const m = MODELS.find(x => x.id === mId);
+  const t = TECH_DEFS.find(x => x.id === tId);
+  const reason = autoScoreReason(r.response);
+  document.getElementById('modalTitle').textContent = `Score breakdown: ${r.autoScore}/10 — ${m?.name} × ${t?.name}`;
+  document.getElementById('modalBody').textContent  =
+    `SCORING CRITERIA (10 checks)\n${'─'.repeat(38)}\n${reason}\n\n${'─'.repeat(38)}\nFinal Score: ${r.autoScore ?? '—'} / 10`;
+  document.getElementById('modal').classList.remove('hidden');
 }
+
+function setScore(key, val) {} // no-op, kept for compatibility
 
 function updateStats() {
   const all    = Object.values(results);
@@ -1174,7 +1306,7 @@ function renderSummaryTable() {
 // EXPORT CSV
 // ══════════════════════════════════════════════
 function exportCSV() {
-  const rows = [['#','Model','Org','Type','Technique','Prompt_Edited','Status','Quality_Score','Latency_s','Word_Count','Response_Excerpt']];
+  const rows = [['#','Model','Org','Type','Technique','Prompt_Edited','Status','Score','Latency_s','Word_Count','Response_Excerpt']];
   let n = 1;
   MODELS.forEach(m => {
     TECH_DEFS.forEach(t => {
@@ -1182,7 +1314,9 @@ function exportCSV() {
       const excerpt = (r.response || '').replace(/"/g,"'").replace(/\n/g,' ').substring(0, 300);
       rows.push([n++, m.name, m.org, m.type, t.name,
         customPrompts[t.id] ? 'yes' : 'no',
-        r.status || 'pending', r.score || '', r.latency || '', r.wordCount || '',
+        r.status || 'pending',
+        r.autoScore ?? '',
+        r.latency   || '', r.wordCount || '',
         `"${excerpt}"`]);
     });
   });
