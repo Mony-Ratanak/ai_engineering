@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>HW3 · Prompt Engineering Lab</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+<script>
+tailwind.config = {
+  darkMode:'class',
+  theme:{extend:{
+    fontFamily:{ mono:['JetBrains Mono','monospace'], sans:['Plus Jakarta Sans','sans-serif'] },
+    colors:{ zinc:{ 950:'#09090f' } },
+    animation:{
+      'fade-in'  :'fadeIn .3s ease forwards',
+      'slide-up' :'slideUp .3s ease forwards',
+      'pulse-dot':'pulseDot 1.4s ease-in-out infinite',
+      'spin-slow':'spin 2s linear infinite',
+      'shake'    :'shake .35s ease',
+    },
+    keyframes:{
+      fadeIn:  {from:{opacity:0},to:{opacity:1}},
+      slideUp: {from:{opacity:0,transform:'translateY(8px)'},to:{opacity:1,transform:'translateY(0)'}},
+      pulseDot:{'0%,100%':{opacity:1,transform:'scale(1)'},'50%':{opacity:.3,transform:'scale(.7)'}},
+      shake:   {'0%,100%':{transform:'translateX(0)'},'25%,75%':{transform:'translateX(-5px)'},'50%':{transform:'translateX(5px)'}},
+    },
+  }}
+}
+</script>
+<style>
+*{box-sizing:border-box}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#27272a;border-radius:2px}
+
+/* Lock card gradient border */
+.lock-card{
+  background:linear-gradient(#0d0d13,#0d0d13) padding-box,
+             linear-gradient(135deg,rgba(245,158,11,.4),rgba(16,185,129,.3),rgba(245,158,11,.4)) border-box;
+  border:1px solid transparent;
+}
+
+/* API key input states */
+.key-idle       { border-color:#27272a }
+.key-checking   { border-color:#f59e0b!important; box-shadow:0 0 0 3px rgba(245,158,11,.1) }
+.key-valid      { border-color:#10b981!important; box-shadow:0 0 0 3px rgba(16,185,129,.1) }
+.key-invalid    { border-color:#ef4444!important; box-shadow:0 0 0 3px rgba(239,68,68,.1); animation:shake .35s ease }
+
+/* Tab active */
+.tab-active{
+  background:linear-gradient(180deg,rgba(245,158,11,.08),transparent);
+  border-bottom:2px solid #f59e0b;
+  color:#fbbf24!important;
+}
+
+/* Score colors */
+.s-hi { background:rgba(16,185,129,.15); color:#10b981; border:1px solid rgba(16,185,129,.25) }
+.s-md { background:rgba(245,158,11,.15); color:#f59e0b; border:1px solid rgba(245,158,11,.25) }
+.s-lo { background:rgba(239,68,68,.1);   color:#f87171; border:1px solid rgba(239,68,68,.2)  }
+
+/* Prompt textarea */
+.prompt-area{
+  resize:vertical;
+  min-height:88px;
+  line-height:1.6;
+  transition:border-color .15s;
+}
+.prompt-area:focus{ border-color:rgba(245,158,11,.5)!important; outline:none }
+.prompt-area.edited{ border-color:rgba(139,92,246,.4)!important }
+
+/* Result row */
+.result-row:hover{ background:rgba(245,158,11,.02) }
+</style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 font-sans antialiased overflow-hidden h-screen">
+
+<!-- ── TOAST ──────────────────────────────── -->
+<div id="toastWrap" class="fixed top-4 right-4 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
+
+<!-- ════════════════════════════════════════
+     LOCK SCREEN
+════════════════════════════════════════ -->
+<div id="lockScreen" class="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950">
+  <!-- Grid bg -->
+  <div class="absolute inset-0 opacity-[.022]"
+    style="background-image:linear-gradient(#f59e0b 1px,transparent 1px),linear-gradient(90deg,#f59e0b 1px,transparent 1px);background-size:48px 48px"></div>
+  <!-- Glows -->
+  <div class="absolute top-1/3 left-1/2 -translate-x-1/2 w-[480px] h-64 bg-amber-500/[.04] rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute bottom-1/4 left-1/4 w-56 h-56 bg-emerald-500/[.04] rounded-full blur-3xl pointer-events-none"></div>
+
+  <div class="lock-card rounded-2xl w-[460px] p-8 relative z-10 animate-fade-in">
+
+    <!-- Logo row -->
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center font-mono font-bold text-zinc-900 text-sm shrink-0">HW3</div>
+      <div>
+        <p class="font-semibold text-zinc-100 text-sm leading-tight">Prompt Engineering Lab</p>
+        <p class="text-zinc-500 text-[11px] font-mono tracking-wider">AI ENGINEER · WEEK 3</p>
+      </div>
+      <div class="ml-auto flex gap-1.5">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-dot"></span>
+        <span class="w-2 h-2 rounded-full bg-amber-400  animate-pulse-dot" style="animation-delay:.3s"></span>
+        <span class="w-2 h-2 rounded-full bg-blue-400   animate-pulse-dot" style="animation-delay:.6s"></span>
+      </div>
+    </div>
+
+    <h1 class="text-[1.9rem] font-extrabold text-white leading-[1.2] mb-1">
+      6 Models.<br/>6 Techniques.<br/><span class="text-amber-400">36 Experiments.</span>
+    </h1>
+    <p class="text-zinc-500 text-[13px] font-mono mb-6">Code Generation · temperature = 0.0</p>
+
+    <!-- API Key field -->
+    <label class="block text-[11px] font-mono text-zinc-400 tracking-widest uppercase mb-1.5">OpenRouter API Key</label>
+    <div class="relative mb-2">
+      <input id="keyInput" type="password" placeholder="sk-or-v1-···" autocomplete="off" spellcheck="false"
+        class="key-idle w-full bg-zinc-900 border rounded-xl px-4 py-3 text-[13px] font-mono text-zinc-100 placeholder-zinc-600 transition-all pr-20 focus:outline-none"
+        oninput="onKeyType()"/>
+      <button onclick="toggleShow()" id="showBtn"
+        class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-mono text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1">SHOW</button>
+    </div>
+
+    <!-- Validation status -->
+    <div id="keyStatus" class="flex items-center gap-2 h-5 mb-4">
+      <!-- filled dynamically -->
+    </div>
+
+    <!-- Enter button -->
+    <button id="enterBtn" onclick="enterLab()"
+      class="w-full bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-bold py-3 rounded-xl text-sm tracking-wide transition-all active:scale-[.98] flex items-center justify-center gap-2">
+      <span id="enterLabel">Enter Lab</span>
+      <span id="enterIcon">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/>
+        </svg>
+      </span>
+    </button>
+
+    <!-- Restore banner (hidden until session found) -->
+    <div id="restoreBanner" class="mt-3 items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-2.5 hidden">
+      <span class="text-emerald-400">↩</span>
+      <span class="text-emerald-300 text-[12px] font-mono">Previous session found — restoring…</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="mt-5 grid grid-cols-3 gap-2 text-center">
+      <div class="bg-zinc-900/50 rounded-xl py-2">
+        <p class="text-amber-400 font-bold text-lg font-mono">3</p>
+        <p class="text-zinc-600 text-[10px] uppercase tracking-wider">Closed</p>
+      </div>
+      <div class="bg-zinc-900/50 rounded-xl py-2">
+        <p class="text-emerald-400 font-bold text-lg font-mono">3</p>
+        <p class="text-zinc-600 text-[10px] uppercase tracking-wider">Free</p>
+      </div>
+      <div class="bg-zinc-900/50 rounded-xl py-2">
+        <p class="text-blue-400 font-bold text-lg font-mono">6</p>
+        <p class="text-zinc-600 text-[10px] uppercase tracking-wider">Techniques</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     APP SHELL
+════════════════════════════════════════ -->
+<div id="app" class="hidden h-screen flex-col">
+
+  <!-- Topbar -->
+  <header class="shrink-0 h-11 bg-zinc-900 border-b border-zinc-800/70 flex items-center px-4 gap-3">
+    <div class="w-7 h-7 bg-amber-500 rounded-lg flex items-center justify-center font-mono font-bold text-zinc-900 text-[10px]">HW3</div>
+    <span class="font-semibold text-sm">Prompt Engineering Lab</span>
+    <span class="text-zinc-700">·</span>
+    <span class="text-zinc-500 text-[12px] font-mono hidden sm:block">Code Generation · T=0.0</span>
+    <div class="ml-auto flex items-center gap-4">
+      <div id="saveIndicator" class="hidden items-center gap-1.5 text-[11px] font-mono text-emerald-400 animate-fade-in">
+        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+        Saved
+      </div>
+      <span class="text-zinc-500 text-[11px] font-mono" id="keyDisplay"></span>
+      <button onclick="logout()" class="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors">logout</button>
+    </div>
+  </header>
+
+  <!-- Body -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- Sidebar -->
+    <aside class="w-52 shrink-0 bg-zinc-900/30 border-r border-zinc-800/50 overflow-y-auto flex flex-col">
+      <div class="p-3 border-b border-zinc-800/50">
+        <p class="text-[10px] font-mono text-zinc-600 tracking-widest uppercase mb-2 px-1">Models</p>
+        <div id="modelSidebar" class="space-y-px"></div>
+      </div>
+      <div class="p-3 border-b border-zinc-800/50">
+        <p class="text-[10px] font-mono text-zinc-600 tracking-widest uppercase mb-2 px-1">Techniques</p>
+        <div id="techSidebar" class="space-y-px"></div>
+      </div>
+      <div class="mt-auto p-3">
+        <p class="text-[10px] font-mono text-zinc-600 tracking-widest uppercase mb-2 px-1">Score Guide</p>
+        <div class="space-y-1.5 px-1">
+          <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-emerald-500/30 border border-emerald-500/40 shrink-0"></span><span class="text-[10px] text-zinc-500 font-mono">9–10 Excellent</span></div>
+          <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-amber-500/30 border border-amber-500/40 shrink-0"></span><span class="text-[10px] text-zinc-500 font-mono">7–8 Good</span></div>
+          <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-orange-500/30 border border-orange-500/40 shrink-0"></span><span class="text-[10px] text-zinc-500 font-mono">5–6 Fair</span></div>
+          <div class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded bg-red-500/30 border border-red-500/40 shrink-0"></span><span class="text-[10px] text-zinc-500 font-mono">1–4 Poor</span></div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col overflow-hidden">
+
+      <!-- Tabs -->
+      <div class="shrink-0 flex items-end gap-0.5 px-4 pt-2.5 border-b border-zinc-800/60 bg-zinc-950/30">
+        <button class="tab-btn tab-active px-4 py-2 text-[12px] font-mono text-zinc-500 hover:text-zinc-300 rounded-t-lg transition-all" data-tab="run"     onclick="switchTab('run',this)">▶ Run</button>
+        <button class="tab-btn            px-4 py-2 text-[12px] font-mono text-zinc-500 hover:text-zinc-300 rounded-t-lg transition-all" data-tab="results" onclick="switchTab('results',this)">Results <span id="doneCount" class="ml-1 text-[10px] bg-zinc-800 text-zinc-500 px-1.5 py-0.5 rounded-full">0/36</span></button>
+        <button class="tab-btn            px-4 py-2 text-[12px] font-mono text-zinc-500 hover:text-zinc-300 rounded-t-lg transition-all" data-tab="charts"  onclick="switchTab('charts',this)">Charts</button>
+        <button class="tab-btn            px-4 py-2 text-[12px] font-mono text-zinc-500 hover:text-zinc-300 rounded-t-lg transition-all" data-tab="export"  onclick="switchTab('export',this)">Export</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto">
+
+        <!-- ───────────── RUN TAB ───────────── -->
+        <div id="tab-run" class="tab-pane p-5 space-y-5 animate-fade-in">
+
+          <!-- Stats -->
+          <div class="grid grid-cols-4 gap-3">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <p class="text-2xl font-extrabold font-mono text-amber-400" id="statDone">0</p>
+              <p class="text-[11px] text-zinc-500 mt-0.5">Completed</p>
+            </div>
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <p class="text-2xl font-extrabold font-mono text-zinc-100">36</p>
+              <p class="text-[11px] text-zinc-500 mt-0.5">Total</p>
+            </div>
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <p class="text-2xl font-extrabold font-mono text-emerald-400" id="statAvgScore">—</p>
+              <p class="text-[11px] text-zinc-500 mt-0.5">Avg Score</p>
+            </div>
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <p class="text-2xl font-extrabold font-mono text-blue-400" id="statAvgLatency">—</p>
+              <p class="text-[11px] text-zinc-500 mt-0.5">Avg Latency</p>
+            </div>
+          </div>
+
+          <!-- ── DYNAMIC BASE TASK ── -->
+          <div class="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+            <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
+              <div class="flex items-center gap-2.5">
+                <span class="text-amber-400">✏</span>
+                <span class="font-semibold text-zinc-100 text-sm">Base Task</span>
+                <span class="text-[10px] font-mono text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">edits all 6 prompts</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="baseCharCount" class="text-[11px] font-mono text-zinc-600">0 chars</span>
+                <button onclick="resetBaseTask()" class="text-[11px] font-mono text-zinc-500 hover:text-zinc-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-lg transition-all">↺ Reset</button>
+              </div>
+            </div>
+            <div class="p-4">
+              <textarea id="baseTaskInput" rows="3"
+                class="w-full bg-zinc-950 border border-zinc-800 rounded-xl px-4 py-3 text-[13px] font-mono text-zinc-200 placeholder-zinc-600 outline-none resize-y leading-relaxed transition-colors focus:border-amber-500/40"
+                placeholder="Describe your code generation task…"
+                oninput="onBaseTaskInput(this.value)"></textarea>
+              <p class="mt-2 text-[11px] text-zinc-600 font-mono">Changing this rebuilds all 6 technique prompts below. You can also fine-tune each prompt individually.</p>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-3">
+            <button id="runAllBtn" onclick="runAll()"
+              class="flex items-center gap-2 bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-bold px-5 py-2.5 rounded-xl text-[12px] tracking-wide transition-all active:scale-[.98]">
+              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              Run All 36
+            </button>
+            <button onclick="clearResults()"
+              class="bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-4 py-2.5 rounded-xl text-[12px] font-mono transition-all">
+              ✕ Clear Results
+            </button>
+            <div class="ml-auto text-[11px] font-mono text-zinc-600 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-500/50"></span>
+              temperature=0.0
+            </div>
+          </div>
+
+          <!-- Progress -->
+          <div id="progressWrap" class="space-y-1.5 hidden">
+            <div class="flex justify-between items-center">
+              <span class="text-[12px] font-mono text-zinc-400" id="progressText"></span>
+              <span class="text-[12px] font-mono text-amber-400" id="progressPct">0%</span>
+            </div>
+            <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+              <div id="progressFill" class="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all duration-300" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- ── PER-TECHNIQUE DYNAMIC PROMPT EDITORS ── -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">Prompt Editor — 6 Techniques</p>
+              <button onclick="resetAllPrompts()" class="text-[11px] font-mono text-zinc-500 hover:text-zinc-300 bg-zinc-800 hover:bg-zinc-700 px-2.5 py-1 rounded-lg transition-all">↺ Reset All</button>
+            </div>
+            <div class="grid grid-cols-2 gap-3" id="promptEditors"></div>
+          </div>
+
+        </div>
+
+        <!-- ───────────── RESULTS TAB ───────────── -->
+        <div id="tab-results" class="tab-pane hidden p-5 animate-fade-in">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-zinc-100">Results Table</h2>
+            <p class="text-[11px] text-zinc-500 font-mono">Scores auto-save after each input</p>
+          </div>
+          <div class="overflow-x-auto rounded-xl border border-zinc-800">
+            <table class="w-full text-[12px] font-mono">
+              <thead>
+                <tr class="bg-zinc-900 border-b border-zinc-800">
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">#</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Model</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Type</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Technique</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Status</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Score</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Latency</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Words</th>
+                  <th class="text-left px-3 py-2.5 text-[10px] text-zinc-500 uppercase tracking-wider">Response</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTbody" class="divide-y divide-zinc-800/50"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ───────────── CHARTS TAB ───────────── -->
+        <div id="tab-charts" class="tab-pane hidden p-5 animate-fade-in">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-bold text-zinc-100">Analysis Charts</h2>
+            <button onclick="renderCharts()" class="text-[12px] font-mono text-zinc-500 hover:text-zinc-300 bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 rounded-lg transition-all">↻ Refresh</button>
+          </div>
+          <div class="grid grid-cols-2 gap-4 mb-4">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Avg Quality / Model</p>
+              <div class="h-52"><canvas id="barChart"></canvas></div>
+            </div>
+            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+              <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Avg Latency / Model (s)</p>
+              <div class="h-52"><canvas id="latencyChart"></canvas></div>
+            </div>
+          </div>
+          <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4 mb-4">
+            <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Quality Heatmap — Technique × Model</p>
+            <div id="heatmapWrap" class="overflow-x-auto"></div>
+          </div>
+          <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Latency Scatter</p>
+            <div class="h-56"><canvas id="scatterChart"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ───────────── EXPORT TAB ───────────── -->
+        <div id="tab-export" class="tab-pane hidden p-5 animate-fade-in">
+          <h2 class="font-bold text-zinc-100 mb-4">Export & Data</h2>
+          <div class="grid grid-cols-3 gap-4 mb-6">
+            <div class="bg-zinc-900 border border-zinc-800 hover:border-amber-500/30 rounded-xl p-5 transition-colors col-span-2">
+              <div class="flex items-start gap-3">
+                <div class="w-9 h-9 bg-amber-500/15 rounded-lg flex items-center justify-center text-amber-400 text-xl shrink-0">⬇</div>
+                <div>
+                  <h3 class="font-semibold text-zinc-100 text-sm mb-1">results.csv</h3>
+                  <p class="text-zinc-500 text-[12px] mb-3 leading-relaxed">Model, technique, quality score, latency, word count, response excerpt. Required for submission.</p>
+                  <button onclick="exportCSV()" class="bg-amber-500 hover:bg-amber-400 text-zinc-900 font-bold text-[12px] px-4 py-2 rounded-lg transition-all">Download results.csv</button>
+                </div>
+              </div>
+            </div>
+            <div class="bg-zinc-900 border border-zinc-800 hover:border-red-500/25 rounded-xl p-5 transition-colors">
+              <div class="flex items-start gap-3">
+                <div class="w-9 h-9 bg-red-500/10 rounded-lg flex items-center justify-center text-red-400 text-xl shrink-0">🗑</div>
+                <div>
+                  <h3 class="font-semibold text-zinc-100 text-sm mb-1">Clear Session</h3>
+                  <p class="text-zinc-500 text-[12px] mb-3 leading-relaxed">Wipe all results, scores, and custom prompts from storage.</p>
+                  <button onclick="clearSession()" class="bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/25 font-bold text-[12px] px-4 py-2 rounded-lg transition-all">Clear All Data</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="text-[10px] font-mono text-zinc-600 uppercase tracking-widest mb-3">Summary Table</p>
+          <div id="summaryTable" class="overflow-x-auto rounded-xl border border-zinc-800"></div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- RESPONSE MODAL -->
+<div id="modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/90 backdrop-blur-sm">
+  <div class="bg-zinc-900 border border-zinc-700 rounded-2xl w-[680px] max-h-[78vh] flex flex-col shadow-2xl animate-slide-up">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+      <span class="font-semibold text-sm" id="modalTitle"></span>
+      <button onclick="closeModal()" class="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs transition-all">✕</button>
+    </div>
+    <pre class="flex-1 overflow-y-auto p-5 text-[12px] font-mono text-zinc-300 leading-relaxed whitespace-pre-wrap" id="modalBody"></pre>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONSTANTS
+// ══════════════════════════════════════════════
+const LS = {
+  key:     'hw3_api_key',
+  results: 'hw3_results',
+  task:    'hw3_base_task',
+  prompts: 'hw3_custom_prompts',   // per-technique overrides
+};
+
+const DEFAULT_TASK = `Write a Python function that takes a list of student records (each record is a dictionary with keys: 'name', 'grade', and 'score'), and returns the top N students sorted by score in descending order. Handle edge cases such as empty lists and N larger than the list size.`;
+
+// ══════════════════════════════════════════════
+// RUNTIME STATE
+// ══════════════════════════════════════════════
+let API_KEY        = '';
+let BASE_TASK      = DEFAULT_TASK;
+let customPrompts  = {};   // { techId: string } — overrides for individual techniques
+let results        = {};
+let running        = false;
+let keyCheckTimer  = null;
+let promptTimer    = null;
+let saveTimer      = null;
+let barChart, latChart, scatChart;
+
+// ══════════════════════════════════════════════
+// MODELS
+// ══════════════════════════════════════════════
+const MODELS = [
+  { id:'gpt4o',   name:'GPT-4o',            org:'OpenAI',    type:'closed', model:'openai/gpt-4o',                          color:'#f59e0b' },
+  { id:'claude',  name:'Claude 3.5 Sonnet', org:'Anthropic', type:'closed', model:'anthropic/claude-3.5-sonnet',            color:'#fb923c' },
+  { id:'gemini',  name:'Gemini 1.5 Pro',    org:'Google',    type:'closed', model:'google/gemini-pro-1.5',                  color:'#3b82f6' },
+  { id:'llama',   name:'LLaMA 3.1 70B',     org:'Meta',      type:'open',   model:'meta-llama/llama-3.1-70b-instruct:free', color:'#10b981' },
+  { id:'mistral', name:'Mistral 7B',        org:'Mistral',   type:'open',   model:'mistralai/mistral-7b-instruct:free',     color:'#8b5cf6' },
+  { id:'gemma',   name:'Gemma 2 9B',        org:'Google',    type:'open',   model:'google/gemma-2-9b-it:free',              color:'#14b8a6' },
+];
+
+// ══════════════════════════════════════════════
+// TECHNIQUE DEFINITIONS
+// Each has a `build(task)` fn → returns default prompt text
+// ══════════════════════════════════════════════
+const TECH_DEFS = [
+  {
+    id:'zeroshot', name:'Zero-Shot', icon:'①', color:'#f59e0b',
+    build: t => t,
+  },
+  {
+    id:'fewshot', name:'Few-Shot', icon:'②', color:'#fb923c',
+    build: t =>
+`Here are two examples of Python functions:
+
+Example 1 — Task: Find the maximum value in a list.
+def find_max(lst):
+    if not lst:
+        return None
+    return max(lst)
+
+Example 2 — Task: Filter a list of dicts by a key value.
+def filter_by_key(records, key, value):
+    return [r for r in records if r.get(key) == value]
+
+Now solve this:
+${t}`,
+  },
+  {
+    id:'cot', name:'Chain-of-Thought', icon:'③', color:'#10b981',
+    build: t =>
+`Think step by step.
+
+${t}
+
+Break down your reasoning into clear steps before writing any code.`,
+  },
+  {
+    id:'role', name:'Role Prompting', icon:'④', color:'#3b82f6',
+    build: t =>
+`You are a senior Python software engineer with 20 years of experience. You always write clean, efficient, production-ready code with proper type hints, PEP 8 style, and thorough docstrings.
+
+${t}`,
+  },
+  {
+    id:'tot', name:'Tree-of-Thought', icon:'⑤', color:'#8b5cf6',
+    build: t =>
+`Explore 2 to 3 different approaches to solve the following problem. For each approach, briefly explain the logic and list pros and cons. Then choose the best one and implement it fully.
+
+Problem:
+${t}`,
+  },
+  {
+    id:'react', name:'ReAct', icon:'⑥', color:'#14b8a6',
+    build: t =>
+`Use the Thought → Action → Observation format to reason through this problem, then give your Final Answer.
+
+Problem: ${t}
+
+Thought 1: What do I need to understand?
+Action 1: Analyze inputs, outputs, and constraints.
+Observation 1: [fill in]
+
+Thought 2: What algorithm should I use?
+Action 2: Consider sorting, slicing, and edge cases.
+Observation 2: [fill in]
+
+Thought 3: How do I handle edge cases?
+Action 3: List each edge case and the fix.
+Observation 3: [fill in]
+
+Final Answer: [complete Python function with docstring and type hints]`,
+  },
+];
+
+// Return active prompt for a technique (custom override or rebuilt default)
+function getPrompt(techId) {
+  return customPrompts[techId] ?? TECH_DEFS.find(t => t.id === techId).build(BASE_TASK);
+}
+
+// ══════════════════════════════════════════════
+// LOCALSTORAGE — save / load / clear
+// ══════════════════════════════════════════════
+function saveSession() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      if (API_KEY)  localStorage.setItem(LS.key,     API_KEY);
+      localStorage.setItem(LS.results, JSON.stringify(results));
+      localStorage.setItem(LS.task,    BASE_TASK);
+      if (Object.keys(customPrompts).length)
+        localStorage.setItem(LS.prompts, JSON.stringify(customPrompts));
+      else
+        localStorage.removeItem(LS.prompts);
+      flashSaved();
+    } catch(e) { console.warn('localStorage write failed:', e); }
+  }, 400); // debounce rapid saves
+}
+
+function loadSession() {
+  try {
+    const key    = localStorage.getItem(LS.key);
+    const res    = localStorage.getItem(LS.results);
+    const task   = localStorage.getItem(LS.task);
+    const custom = localStorage.getItem(LS.prompts);
+    if (key)    API_KEY       = key;
+    if (task)   BASE_TASK     = task;
+    if (res)    results       = JSON.parse(res);
+    if (custom) customPrompts = JSON.parse(custom);
+    return !!key;   // true = we have a saved key
+  } catch(e) {
+    console.warn('localStorage read failed:', e);
+    return false;
+  }
+}
+
+function clearSession() {
+  if (!confirm('Clear all saved data? (API key, results, custom prompts)')) return;
+  try { Object.values(LS).forEach(k => localStorage.removeItem(k)); } catch(e) {}
+  API_KEY = ''; BASE_TASK = DEFAULT_TASK; customPrompts = {}; results = {};
+  initResults();
+  renderPromptEditors();
+  renderResultsTable();
+  updateStats();
+  const ta = document.getElementById('baseTaskInput');
+  if (ta) { ta.value = BASE_TASK; updateBaseCharCount(); }
+  showToast('Session cleared', 'neutral');
+}
+
+let _savedTimeout;
+function flashSaved() {
+  const el = document.getElementById('saveIndicator');
+  if (!el) return;
+  el.style.display = 'flex';
+  clearTimeout(_savedTimeout);
+  _savedTimeout = setTimeout(() => { el.style.display = 'none'; }, 2000);
+}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+function showToast(msg, type = 'success') {
+  const palette = {
+    success: 'bg-emerald-950 border-emerald-700/60 text-emerald-200',
+    error:   'bg-red-950    border-red-700/60      text-red-200',
+    warning: 'bg-amber-950  border-amber-700/60    text-amber-200',
+    neutral: 'bg-zinc-800   border-zinc-700        text-zinc-200',
+  };
+  const icon = { success:'✓', error:'✗', warning:'⚠', neutral:'ℹ' };
+  const wrap = document.getElementById('toastWrap');
+  const div  = document.createElement('div');
+  div.className = `flex items-center gap-2 px-4 py-2.5 rounded-xl border text-[12px] font-mono shadow-xl animate-slide-up ${palette[type] || palette.neutral}`;
+  div.innerHTML  = `<span>${icon[type]||'ℹ'}</span><span>${esc(msg)}</span>`;
+  wrap.appendChild(div);
+  setTimeout(() => {
+    div.style.transition = 'opacity .25s, transform .25s';
+    div.style.opacity    = '0';
+    div.style.transform  = 'translateY(-6px)';
+    setTimeout(() => div.remove(), 280);
+  }, 3000);
+}
+
+// ══════════════════════════════════════════════
+// LOCK SCREEN — KEY VALIDATION
+// ══════════════════════════════════════════════
+function toggleShow() {
+  const inp = document.getElementById('keyInput');
+  const btn = document.getElementById('showBtn');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? 'SHOW' : 'HIDE';
+}
+
+/* Called on every keystroke — debounces and auto-validates after typing stops */
+function onKeyType() {
+  const val = document.getElementById('keyInput').value.trim();
+  clearTimeout(keyCheckTimer);
+  setKeyState('idle');
+  if (val.length < 12) return;
+  keyCheckTimer = setTimeout(() => validateKey(val, false), 700);
+}
+
+/* UI states: idle | checking | valid | invalid */
+function setKeyState(state, msg = '') {
+  const input = document.getElementById('keyInput');
+  const status = document.getElementById('keyStatus');
+  const btn    = document.getElementById('enterBtn');
+  const label  = document.getElementById('enterLabel');
+  const icon   = document.getElementById('enterIcon');
+
+  input.className = input.className.replace(/key-\w+/g, '').trim();
+  btn.disabled    = false;
+
+  const stateMap = {
+    idle: {
+      inputCls: 'key-idle',
+      statusHTML: '',
+      btnDisabled: false,
+      labelText: 'Enter Lab',
+      iconHTML: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>`,
+    },
+    checking: {
+      inputCls: 'key-checking',
+      statusHTML: `<svg class="w-3.5 h-3.5 animate-spin-slow text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg><span class="text-amber-400">Validating key…</span>`,
+      btnDisabled: true,
+      labelText: 'Checking…',
+      iconHTML: `<svg class="w-4 h-4 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>`,
+    },
+    valid: {
+      inputCls: 'key-valid',
+      statusHTML: `<span class="text-emerald-400">✓</span><span class="text-emerald-300">${esc(msg || 'Key verified')}</span>`,
+      btnDisabled: false,
+      labelText: 'Enter Lab',
+      iconHTML: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>`,
+    },
+    invalid: {
+      inputCls: 'key-invalid',
+      statusHTML: `<span class="text-red-400">✗</span><span class="text-red-300">${esc(msg || 'Invalid key')}</span>`,
+      btnDisabled: false,
+      labelText: 'Enter Lab',
+      iconHTML: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>`,
+    },
+  };
+
+  const s = stateMap[state] || stateMap.idle;
+  input.classList.add(s.inputCls);
+  status.innerHTML  = s.statusHTML;
+  btn.disabled      = s.btnDisabled;
+  label.textContent = s.labelText;
+  icon.innerHTML    = s.iconHTML;
+}
+
+/* Hits /api/v1/auth/key to verify the key */
+async function validateKey(key, andEnter = true) {
+  setKeyState('checking');
+  try {
+    const res  = await fetch('https://openrouter.ai/api/v1/auth/key', {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    const data = await res.json();
+
+    if (!res.ok || data.error) {
+      const reason = data?.error?.message || `HTTP ${res.status}`;
+      setKeyState('invalid', reason);
+      return false;
+    }
+
+    // data.data contains label, usage, is_free_tier, rate_limit etc.
+    const label = data?.data?.label ? `${data.data.label}` : 'Key verified';
+    const usage = data?.data?.usage != null ? ` · $${Number(data.data.usage).toFixed(4)} used` : '';
+    setKeyState('valid', label + usage);
+    if (andEnter) enterApp(key);
+    return true;
+  } catch (err) {
+    setKeyState('invalid', 'Network error — check connection');
+    return false;
+  }
+}
+
+/* Enter Lab button handler */
+async function enterLab() {
+  const key = document.getElementById('keyInput').value.trim();
+  if (!key) {
+    document.getElementById('keyInput').classList.add('key-invalid');
+    setTimeout(() => document.getElementById('keyInput').classList.remove('key-invalid'), 500);
+    return;
+  }
+  await validateKey(key, true);
+}
+
+function enterApp(key) {
+  API_KEY = key;
+  saveSession();
+  document.getElementById('lockScreen').style.display = 'none';
+  const app = document.getElementById('app');
+  app.style.display = 'flex';
+  app.classList.remove('hidden');
+  document.getElementById('keyDisplay').textContent = key.substring(0, 16) + '…';
+  initApp();
+}
+
+function logout() {
+  API_KEY = '';
+  try { localStorage.removeItem(LS.key); } catch(e) {}
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('lockScreen').style.display = 'flex';
+  document.getElementById('keyInput').value = '';
+  setKeyState('idle');
+}
+
+// ══════════════════════════════════════════════
+// APP INIT
+// ══════════════════════════════════════════════
+function initApp() {
+  renderSidebar();
+  // Hydrate base task textarea
+  const ta = document.getElementById('baseTaskInput');
+  if (ta) { ta.value = BASE_TASK; updateBaseCharCount(); }
+  renderPromptEditors();
+  initResults();
+  renderResultsTable();
+  updateStats();
+}
+
+function renderSidebar() {
+  document.getElementById('modelSidebar').innerHTML = MODELS.map(m => `
+    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-800/40 transition-colors">
+      <span class="w-2 h-2 rounded-full shrink-0" style="background:${m.color}"></span>
+      <div class="min-w-0">
+        <p class="text-[12px] text-zinc-300 truncate font-medium">${m.name}</p>
+        <p class="text-[10px] text-zinc-600">${m.org}
+          <span class="ml-1 px-1 rounded text-[9px] font-mono font-semibold ${m.type === 'open' ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'}">${m.type}</span>
+        </p>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('techSidebar').innerHTML = TECH_DEFS.map(t => `
+    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-zinc-800/40 transition-colors">
+      <span class="text-base leading-none shrink-0" style="color:${t.color}">${t.icon}</span>
+      <span class="text-[12px] text-zinc-400 truncate">${t.name}</span>
+    </div>`).join('');
+}
+
+// ══════════════════════════════════════════════
+// DYNAMIC BASE TASK
+// ══════════════════════════════════════════════
+function updateBaseCharCount() {
+  const el = document.getElementById('baseCharCount');
+  if (el) el.textContent = (document.getElementById('baseTaskInput')?.value?.length ?? 0) + ' chars';
+}
+
+function onBaseTaskInput(val) {
+  updateBaseCharCount();
+  clearTimeout(promptTimer);
+  promptTimer = setTimeout(() => {
+    BASE_TASK = val;
+    // Clear any custom prompts that were built from old task if they match the old default exactly
+    // (keep user-modified ones)
+    renderPromptEditors();
+    saveSession();
+  }, 500);
+}
+
+function resetBaseTask() {
+  BASE_TASK = DEFAULT_TASK;
+  const ta = document.getElementById('baseTaskInput');
+  if (ta) { ta.value = BASE_TASK; updateBaseCharCount(); }
+  renderPromptEditors();
+  saveSession();
+  showToast('Base task reset to default', 'neutral');
+}
+
+// ══════════════════════════════════════════════
+// PER-TECHNIQUE PROMPT EDITORS
+// ══════════════════════════════════════════════
+function renderPromptEditors() {
+  const wrap = document.getElementById('promptEditors');
+  if (!wrap) return;
+  wrap.innerHTML = TECH_DEFS.map((t, i) => {
+    const isCustom    = customPrompts[t.id] !== undefined;
+    const promptValue = getPrompt(t.id);
+    return `
+    <div class="bg-zinc-900 border border-zinc-800 hover:border-zinc-700/80 rounded-xl overflow-hidden transition-colors" style="animation-delay:${i*40}ms">
+      <div class="flex items-center gap-2 px-4 py-2.5 border-b border-zinc-800/70">
+        <span class="text-[15px] leading-none shrink-0" style="color:${t.color}">${t.icon}</span>
+        <span class="font-semibold text-zinc-100 text-sm">${t.name}</span>
+        ${isCustom ? `<span class="ml-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25">EDITED</span>` : ''}
+        <div class="ml-auto flex items-center gap-1.5">
+          <span class="text-[10px] font-mono text-zinc-600">${promptValue.length}c</span>
+          ${isCustom ? `<button onclick="resetPrompt('${t.id}')" class="text-[10px] font-mono text-zinc-500 hover:text-zinc-300 bg-zinc-800 px-1.5 py-0.5 rounded transition-all">↺</button>` : ''}
+        </div>
+      </div>
+      <div class="p-3">
+        <textarea id="prompt_${t.id}" rows="4"
+          class="prompt-area w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-2.5 text-[11px] font-mono text-zinc-300 placeholder-zinc-600 outline-none leading-relaxed ${isCustom ? 'edited' : ''}"
+          placeholder="Prompt for ${t.name}…"
+          oninput="onPromptEdit('${t.id}', this.value)"
+        >${esc(promptValue)}</textarea>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function onPromptEdit(techId, val) {
+  const defaultPrompt = TECH_DEFS.find(t => t.id === techId).build(BASE_TASK);
+  // Only store as custom if it differs from the auto-built version
+  if (val.trim() === defaultPrompt.trim()) {
+    delete customPrompts[techId];
+  } else {
+    customPrompts[techId] = val;
+  }
+  // Update char count in header (re-render just the label)
+  const ta = document.getElementById(`prompt_${techId}`);
+  const wrap = ta?.closest('.bg-zinc-900');
+  if (wrap) {
+    const charEl = wrap.querySelector('.text-zinc-600');
+    if (charEl) charEl.textContent = val.length + 'c';
+    // Toggle edited badge without full re-render
+    const isCustom = customPrompts[techId] !== undefined;
+    let badge = wrap.querySelector('.bg-purple-500\\/15');
+    const nameSpan = wrap.querySelector('.font-semibold');
+    if (isCustom && !badge) {
+      const el = document.createElement('span');
+      el.className = 'ml-1 text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/25';
+      el.textContent = 'EDITED';
+      nameSpan.after(el);
+      ta.classList.add('edited');
+    } else if (!isCustom && badge) {
+      badge.remove();
+      ta.classList.remove('edited');
+    }
+  }
+  // Debounced save
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => saveSession(), 600);
+}
+
+function resetPrompt(techId) {
+  delete customPrompts[techId];
+  const ta = document.getElementById(`prompt_${techId}`);
+  if (ta) ta.value = TECH_DEFS.find(t => t.id === techId).build(BASE_TASK);
+  renderPromptEditors();   // re-render to remove badge
+  saveSession();
+  showToast(`${TECH_DEFS.find(t=>t.id===techId)?.name} prompt reset`, 'neutral');
+}
+
+function resetAllPrompts() {
+  customPrompts = {};
+  renderPromptEditors();
+  saveSession();
+  showToast('All prompts reset to defaults', 'neutral');
+}
+
+// ══════════════════════════════════════════════
+// RESULTS STATE
+// ══════════════════════════════════════════════
+function initResults() {
+  MODELS.forEach(m => TECH_DEFS.forEach(t => {
+    const k = `${m.id}_${t.id}`;
+    if (!results[k]) results[k] = { status:'pending', response:'', latency:null, wordCount:0, score:null };
+  }));
+}
+
+// ══════════════════════════════════════════════
+// API CALL
+// ══════════════════════════════════════════════
+async function callAPI(modelId, techId) {
+  const m      = MODELS.find(x => x.id === modelId);
+  const prompt = getPrompt(techId);
+  const t0     = performance.now();
+  const res    = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    method : 'POST',
+    headers: {
+      'Content-Type' : 'application/json',
+      'Authorization': `Bearer ${API_KEY}`,
+      'HTTP-Referer'  : 'https://hw3-lab.local',
+      'X-Title'       : 'HW3 Prompt Engineering Lab',
+    },
+    body: JSON.stringify({
+      model      : m.model,
+      temperature: 0.0,
+      max_tokens : 1200,
+      messages   : [{ role:'user', content:prompt }],
+    }),
+  });
+  const data    = await res.json();
+  const latency = ((performance.now() - t0) / 1000).toFixed(2);
+  if (data.error) throw new Error(data.error.message || `HTTP ${res.status}`);
+  const text = data.choices?.[0]?.message?.content || '';
+  return {
+    response  : text,
+    latency   : parseFloat(latency),
+    wordCount : text.trim().split(/\s+/).filter(Boolean).length,
+  };
+}
+
+// ══════════════════════════════════════════════
+// RUN ALL
+// ══════════════════════════════════════════════
+async function runAll() {
+  if (running) return;
+  running = true;
+  const btn = document.getElementById('runAllBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg> Running…`;
+  document.getElementById('progressWrap').classList.remove('hidden');
+
+  const combos = [];
+  MODELS.forEach(m => TECH_DEFS.forEach(t => combos.push({ m, t })));
+  let done = 0;
+
+  for (const { m, t } of combos) {
+    const k = `${m.id}_${t.id}`;
+    results[k] = { ...results[k], status:'running' };
+    renderResultsTable();
+    setProgress(done, combos.length, `${m.name} × ${t.name}`);
+    try {
+      const r    = await callAPI(m.id, t.id);
+      results[k] = { ...results[k], status:'done', response:r.response, latency:r.latency, wordCount:r.wordCount };
+    } catch (e) {
+      results[k] = { ...results[k], status:'error', response:`Error: ${e.message}` };
+      showToast(`${m.name} × ${t.name}: ${e.message}`, 'error');
+    }
+    done++;
+    setProgress(done, combos.length, done === combos.length ? '✓ All done!' : `Next: ${combos[done]?.m?.name}`);
+    renderResultsTable();
+    updateStats();
+    saveSession();
+    await new Promise(r => setTimeout(r, 280));
+  }
+
+  running = false;
+  btn.disabled = false;
+  btn.innerHTML = `<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Run All 36`;
+  showToast('All 36 experiments complete!', 'success');
+  renderCharts();
+}
+
+function setProgress(done, total, msg) {
+  const pct = Math.round((done / total) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressText').textContent = `${done}/${total} — ${msg}`;
+  document.getElementById('progressPct').textContent  = pct + '%';
+}
+
+function clearResults() {
+  if (!confirm('Clear all experiment results? API key and prompts are kept.')) return;
+  MODELS.forEach(m => TECH_DEFS.forEach(t => {
+    results[`${m.id}_${t.id}`] = { status:'pending', response:'', latency:null, wordCount:0, score:null };
+  }));
+  renderResultsTable();
+  updateStats();
+  saveSession();
+  showToast('Results cleared', 'neutral');
+}
+
+// ══════════════════════════════════════════════
+// RESULTS TABLE
+// ══════════════════════════════════════════════
+function renderResultsTable() {
+  const tbody = document.getElementById('resultsTbody');
+  if (!tbody) return;
+  let n = 1, html = '';
+  MODELS.forEach(m => {
+    TECH_DEFS.forEach(t => {
+      const k = `${m.id}_${t.id}`;
+      const r = results[k] || { status:'pending', latency:null, wordCount:0, score:null, response:'' };
+      const statusUI = {
+        pending: `<span class="text-zinc-700">○ pending</span>`,
+        running: `<span class="text-amber-400 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse-dot inline-block"></span>running</span>`,
+        done   : `<span class="text-emerald-400">✓ done</span>`,
+        error  : `<span class="text-red-400">✗ error</span>`,
+      }[r.status] || '';
+      const sc = r.score ? (r.score >= 7 ? 's-hi' : r.score >= 5 ? 's-md' : 's-lo') : '';
+      html += `
+      <tr class="result-row transition-colors">
+        <td class="px-3 py-2 text-zinc-600">${n++}</td>
+        <td class="px-3 py-2">
+          <div class="flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:${m.color}"></span>
+            <span class="text-zinc-300 text-[11px]">${m.name}</span>
+          </div>
+        </td>
+        <td class="px-3 py-2">
+          <span class="text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold ${m.type === 'open' ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'}">${m.type}</span>
+        </td>
+        <td class="px-3 py-2 text-zinc-400 text-[11px]">${t.name}</td>
+        <td class="px-3 py-2 text-[11px]">${statusUI}</td>
+        <td class="px-3 py-2">
+          <input type="number" min="1" max="10" value="${r.score || ''}" placeholder="—"
+            class="w-12 text-center bg-zinc-800 border border-zinc-700 focus:border-amber-500 rounded-lg px-1 py-1 text-[11px] font-mono text-zinc-100 outline-none transition-colors ${sc} ${r.status !== 'done' ? 'opacity-30 cursor-not-allowed' : ''}"
+            onchange="setScore('${k}', this.value)"
+            ${r.status !== 'done' ? 'disabled' : ''}/>
+        </td>
+        <td class="px-3 py-2 text-teal-400 text-[11px]">${r.latency != null ? r.latency + 's' : '—'}</td>
+        <td class="px-3 py-2 text-blue-400 text-[11px]">${r.wordCount || '—'}</td>
+        <td class="px-3 py-2">
+          ${r.response
+            ? `<p class="max-w-[200px] text-[10px] text-zinc-500 truncate">${esc(r.response.substring(0, 80))}</p>
+               <button class="text-[10px] text-amber-400 hover:text-amber-300 mt-0.5 font-mono transition-colors" onclick="showModal('${k}')">view full ↗</button>`
+            : `<span class="text-zinc-700 text-[10px]">not run yet</span>`}
+        </td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML = html;
+  const done = Object.values(results).filter(r => r.status === 'done').length;
+  const el = document.getElementById('doneCount');
+  if (el) el.textContent = `${done}/36`;
+}
+
+function setScore(key, val) {
+  if (!results[key]) return;
+  const v = parseInt(val);
+  results[key].score = (v >= 1 && v <= 10) ? v : null;
+  updateStats();
+  renderResultsTable();
+  saveSession();
+}
+
+function updateStats() {
+  const all    = Object.values(results);
+  const done   = all.filter(r => r.status === 'done').length;
+  const scores = all.filter(r => r.score).map(r => r.score);
+  const lats   = all.filter(r => r.latency != null).map(r => r.latency);
+  const $      = id => document.getElementById(id);
+  if ($('statDone'))       $('statDone').textContent       = done;
+  if ($('statAvgScore'))   $('statAvgScore').textContent   = scores.length ? (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1) : '—';
+  if ($('statAvgLatency')) $('statAvgLatency').textContent = lats.length   ? (lats.reduce((a,b) => a+b, 0)   / lats.length).toFixed(2) + 's' : '—';
+}
+
+// ══════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════
+function showModal(key) {
+  const r = results[key]; if (!r) return;
+  const [mId, tId] = key.split('_');
+  const m = MODELS.find(x => x.id === mId);
+  const t = TECH_DEFS.find(x => x.id === tId);
+  document.getElementById('modalTitle').textContent = `${m?.name} × ${t?.name}`;
+  document.getElementById('modalBody').textContent  = r.response;
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal() { document.getElementById('modal').classList.add('hidden'); }
+
+// ══════════════════════════════════════════════
+// CHARTS
+// ══════════════════════════════════════════════
+const CAXIS = { ticks:{ color:'#52525b', font:{ family:'JetBrains Mono', size:10 } }, grid:{ color:'#18181b' } };
+
+function modelAvg(id, field) {
+  const vals = TECH_DEFS.map(t => results[`${id}_${t.id}`]?.[field]).filter(v => v != null);
+  return vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : 0;
+}
+
+function renderCharts() {
+  [barChart, latChart, scatChart].forEach(c => c?.destroy());
+
+  barChart = new Chart(document.getElementById('barChart'), {
+    type:'bar',
+    data:{ labels:MODELS.map(m => m.name.split(' ')[0]),
+      datasets:[{ data:MODELS.map(m => modelAvg(m.id,'score').toFixed(2)),
+        backgroundColor:MODELS.map(m => m.color + '44'), borderColor:MODELS.map(m => m.color),
+        borderWidth:1.5, borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ y:{ ...CAXIS, min:0, max:10 }, x:{ ...CAXIS, grid:{ display:false } } } },
+  });
+
+  latChart = new Chart(document.getElementById('latencyChart'), {
+    type:'bar',
+    data:{ labels:MODELS.map(m => m.name.split(' ')[0]),
+      datasets:[{ data:MODELS.map(m => modelAvg(m.id,'latency').toFixed(2)),
+        backgroundColor:MODELS.map(m => m.color + '33'), borderColor:MODELS.map(m => m.color),
+        borderWidth:1.5, borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ y:{ ...CAXIS }, x:{ ...CAXIS, grid:{ display:false } } } },
+  });
+
+  // Heatmap
+  const heatBg = v => {
+    if (!v) return 'background:#18181b;color:#3f3f46';
+    if (v >= 9) return 'background:rgba(16,185,129,.25);color:#10b981';
+    if (v >= 7) return 'background:rgba(245,158,11,.2);color:#f59e0b';
+    if (v >= 5) return 'background:rgba(249,115,22,.2);color:#fb923c';
+    return 'background:rgba(239,68,68,.15);color:#f87171';
+  };
+  let tbl = `<table class="w-full text-xs font-mono border-separate border-spacing-0.5"><thead><tr>
+    <th class="text-left px-2 py-1.5 text-zinc-600 text-[10px] uppercase tracking-wider">Technique ╲ Model</th>`;
+  MODELS.forEach(m => { tbl += `<th class="px-2 py-1.5 text-[10px] uppercase tracking-wider text-center" style="color:${m.color}">${m.name.split(' ')[0]}</th>`; });
+  tbl += `</tr></thead><tbody>`;
+  TECH_DEFS.forEach(t => {
+    tbl += `<tr><td class="px-2 py-1.5 text-zinc-400 text-[11px] whitespace-nowrap">${t.icon} ${t.name}</td>`;
+    MODELS.forEach(m => {
+      const s = results[`${m.id}_${t.id}`]?.score;
+      tbl += `<td class="text-center rounded-lg text-[13px] font-bold py-2" style="${heatBg(s)}">${s || '·'}</td>`;
+    });
+    tbl += `</tr>`;
+  });
+  document.getElementById('heatmapWrap').innerHTML = tbl + `</tbody></table>`;
+
+  scatChart = new Chart(document.getElementById('scatterChart'), {
+    type:'scatter',
+    data:{ datasets:MODELS.map(m => ({
+      label: m.name,
+      data: TECH_DEFS.map(t => {
+        const r = results[`${m.id}_${t.id}`];
+        return r?.latency != null ? { x:r.latency, y:r.score||0, tech:t.name } : null;
+      }).filter(Boolean),
+      backgroundColor:m.color + '99', borderColor:m.color, pointRadius:6, pointHoverRadius:9,
+    })) },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display:true, labels:{ color:'#71717a', font:{ family:'JetBrains Mono', size:10 }, boxWidth:10 } },
+        tooltip:{ callbacks:{ label:d => `${d.dataset.label} — ${d.raw.tech}: ${d.raw.x}s / score ${d.raw.y}` } },
+      },
+      scales:{
+        x:{ title:{ display:true, text:'Latency (s)', color:'#52525b' }, ticks:{ color:'#52525b' }, grid:{ color:'#18181b' } },
+        y:{ min:0, max:10, title:{ display:true, text:'Quality', color:'#52525b' }, ticks:{ color:'#52525b' }, grid:{ color:'#18181b' } },
+      },
+    },
+  });
+
+  renderSummaryTable();
+}
+
+function renderSummaryTable() {
+  const el = document.getElementById('summaryTable'); if (!el) return;
+  let html = `<table class="w-full text-xs font-mono">
+    <thead><tr class="bg-zinc-900 border-b border-zinc-800">
+      <th class="text-left px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-wider">Model</th>
+      <th class="text-left px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-wider">Type</th>`;
+  TECH_DEFS.forEach(t => { html += `<th class="text-center px-2 py-2 text-[10px] text-zinc-500 uppercase tracking-wider">${t.name}</th>`; });
+  html += `<th class="text-center px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-wider">Avg</th>
+      <th class="text-center px-3 py-2 text-[10px] text-zinc-500 uppercase tracking-wider">Latency</th>
+    </tr></thead><tbody class="divide-y divide-zinc-800/50">`;
+  MODELS.forEach(m => {
+    const avg = modelAvg(m.id, 'score'), lat = modelAvg(m.id, 'latency');
+    html += `<tr class="hover:bg-zinc-900/50 transition-colors">
+      <td class="px-3 py-2 font-semibold" style="color:${m.color}">${m.name}</td>
+      <td class="px-3 py-2"><span class="text-[10px] px-1.5 py-0.5 rounded font-semibold ${m.type === 'open' ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'}">${m.type}</span></td>`;
+    TECH_DEFS.forEach(t => {
+      const s = results[`${m.id}_${t.id}`]?.score;
+      html += `<td class="text-center px-2 py-2 font-bold ${s ? (s >= 7 ? 'text-emerald-400' : s >= 5 ? 'text-amber-400' : 'text-red-400') : 'text-zinc-600'}">${s || '—'}</td>`;
+    });
+    html += `<td class="text-center px-3 py-2 font-bold text-amber-400">${avg ? avg.toFixed(1) : '—'}</td>
+      <td class="text-center px-3 py-2 text-teal-400">${lat ? lat.toFixed(2) + 's' : '—'}</td></tr>`;
+  });
+  el.innerHTML = html + `</tbody></table>`;
+}
+
+// ══════════════════════════════════════════════
+// EXPORT CSV
+// ══════════════════════════════════════════════
+function exportCSV() {
+  const rows = [['#','Model','Org','Type','Technique','Prompt_Edited','Status','Quality_Score','Latency_s','Word_Count','Response_Excerpt']];
+  let n = 1;
+  MODELS.forEach(m => {
+    TECH_DEFS.forEach(t => {
+      const r       = results[`${m.id}_${t.id}`] || {};
+      const excerpt = (r.response || '').replace(/"/g,"'").replace(/\n/g,' ').substring(0, 300);
+      rows.push([n++, m.name, m.org, m.type, t.name,
+        customPrompts[t.id] ? 'yes' : 'no',
+        r.status || 'pending', r.score || '', r.latency || '', r.wordCount || '',
+        `"${excerpt}"`]);
+    });
+  });
+  const a = document.createElement('a');
+  a.href     = URL.createObjectURL(new Blob([rows.map(r => r.join(',')).join('\n')], { type:'text/csv' }));
+  a.download = 'results.csv';
+  a.click();
+  showToast('results.csv downloaded', 'success');
+}
+
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('tab-active'));
+  document.getElementById(`tab-${id}`).classList.remove('hidden');
+  btn.classList.add('tab-active');
+  if (id === 'charts') renderCharts();
+  if (id === 'export') renderSummaryTable();
+}
+
+// ══════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ══════════════════════════════════════════════
+// BOOT — runs on DOMContentLoaded
+// ══════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', async () => {
+
+  // Wire up modal close and Enter key
+  document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
+  document.getElementById('keyInput').addEventListener('keydown', e => { if (e.key === 'Enter') enterLab(); });
+
+  // Try to restore session from localStorage
+  const hasKey = loadSession();
+
+  if (hasKey && API_KEY) {
+    // Pre-fill key field
+    document.getElementById('keyInput').value = API_KEY;
+
+    // Show the restore banner
+    const banner = document.getElementById('restoreBanner');
+    banner.style.display = 'flex';
+
+    // Re-validate the saved key before auto-entering (key may have expired)
+    setKeyState('checking');
+    const ok = await validateKey(API_KEY, false);
+
+    if (ok) {
+      // Small pause so the user sees the "valid" state, then enter
+      setTimeout(() => enterApp(API_KEY), 600);
+    } else {
+      // Key is no longer valid — stay on lock screen, clear stored key
+      try { localStorage.removeItem(LS.key); } catch(e) {}
+      API_KEY = '';
+      banner.style.display = 'none';
+      showToast('Saved key is no longer valid — please re-enter', 'warning');
+    }
+  } else if (localStorage.getItem(LS.results) || localStorage.getItem(LS.task)) {
+    // Has partial session (results or task but no key)
+    const banner = document.getElementById('restoreBanner');
+    banner.querySelector('span:last-child').textContent = 'Previous session found — enter your key to continue';
+    banner.style.display = 'flex';
+  }
+});
+</script>
+</body>
+</html>
