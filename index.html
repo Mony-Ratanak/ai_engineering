@@ -444,8 +444,8 @@ const MODELS = [
   { id:'gpt4o',   name:'GPT-4o',            org:'OpenAI',    type:'closed', free:false, model:'openai/gpt-4o',                                color:'#f59e0b' },
   { id:'claude',  name:'Claude 3.5 Sonnet', org:'Anthropic', type:'closed', free:false, model:'anthropic/claude-3.5-sonnet-20241022',          color:'#fb923c' },
   { id:'gemini',  name:'Gemini 2.5 Flash',    org:'Google',    type:'closed', free:false, model:'google/gemini-2.5-flash',                        color:'#3b82f6' },
-  { id:'llama',   name:'LLaMA 3.2 3B',     org:'Meta',      type:'open',   free:true,  model:'meta-llama/llama-3.2-3b-instruct:free',       color:'#10b981' },
-  { id:'mistral', name:'Mistral Small 3.1 24B',        org:'Mistral',   type:'open',   free:true,  model:'mistralai/mistral-small-3.1-24b-instruct:free',            color:'#8b5cf6' },
+  { id:'llama',   name:'Step 3.5 Flash',      org:'StepFun',   type:'open',   free:true,  model:'stepfun/step-3.5-flash:free',                 color:'#10b981' },
+  { id:'mistral', name:'GPT-OSS 20B',       org:'OpenAI',    type:'open',   free:true,  model:'openai/gpt-oss-20b:free',                     color:'#8b5cf6' },
   { id:'gemma',   name:'Gemma 3 4B',        org:'Google',    type:'open',   free:true,  model:'google/gemma-3-4b-it:free',  }
 ];
 // Default: all models selected
@@ -1047,7 +1047,7 @@ async function callAPI(modelId, techId) {
   const m      = MODELS.find(x => x.id === modelId);
   const prompt = getPrompt(techId);
 
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 5;
   let attempt = 0;
 
   while (attempt < MAX_RETRIES) {
@@ -1067,6 +1067,7 @@ async function callAPI(modelId, techId) {
           temperature: 0.0,
           max_tokens : 1200,
           messages   : [{ role:'user', content:prompt }],
+          ...(m.free && { provider: { allow_fallbacks: true } }),
         }),
       });
       data = await res.json();
@@ -1074,9 +1075,10 @@ async function callAPI(modelId, techId) {
       throw new Error(`Network error: ${netErr.message}`);
     }
 
-    // Rate-limited → wait and retry
-    if (res.status === 429) {
-      const wait = (attempt + 1) * (m.free ? 8000 : 4000);
+    // Rate-limited or overloaded → wait and retry (exponential backoff)
+    if (res.status === 429 || res.status === 503) {
+      const base = m.free ? 30000 : 8000;
+      const wait = base * Math.pow(2, attempt);
       showToast(`${m.name} rate-limited — retrying in ${wait/1000}s… (${attempt+1}/${MAX_RETRIES})`, 'warning');
       await new Promise(r => setTimeout(r, wait));
       attempt++;
@@ -1100,7 +1102,7 @@ async function callAPI(modelId, techId) {
     };
   }
 
-  throw new Error(`Failed after ${MAX_RETRIES} retries (rate limit)`);
+  throw new Error(`Rate limited — try again in a minute or use "Retry Errors"`);
 }
 
 // ══════════════════════════════════════════════
@@ -1160,7 +1162,7 @@ async function _runCombos(resumeMode) {
     updateModelStatusBadges();
     updateStats();
     saveSession();
-    const delay = m.free ? 1800 : 350;
+    const delay = m.free ? 10000 : 500;
     await new Promise(r => setTimeout(r, delay));
   }
 
