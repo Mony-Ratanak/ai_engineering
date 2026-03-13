@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="dark" id="htmlRoot">
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
@@ -31,6 +31,22 @@ tailwind.config = {
 </script>
 <style>
 *{box-sizing:border-box}
+
+/* ── Global font size & weight boost ── */
+body { font-size:14px!important; font-weight:500!important; }
+p, span, div, li, td, th { font-weight:500; }
+.text-\[10px\]  { font-size:11px!important; font-weight:600!important; }
+.text-\[11px\]  { font-size:12px!important; font-weight:600!important; }
+.text-\[12px\]  { font-size:13px!important; font-weight:600!important; }
+.text-\[13px\]  { font-size:14px!important; font-weight:500!important; }
+.text-sm        { font-size:14px!important; font-weight:600!important; }
+.text-xs        { font-size:12px!important; font-weight:600!important; }
+.font-mono      { letter-spacing:.01em; }
+header span, header button { font-size:13px!important; font-weight:600!important; }
+aside p         { font-size:11px!important; font-weight:700!important; letter-spacing:.08em; }
+table th        { font-size:11px!important; font-weight:700!important; letter-spacing:.06em; }
+table td        { font-size:13px!important; font-weight:500!important; }
+
 ::-webkit-scrollbar{width:4px;height:4px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#27272a;border-radius:2px}
@@ -72,6 +88,59 @@ tailwind.config = {
 
 /* Result row */
 .result-row:hover{ background:rgba(245,158,11,.02) }
+
+/* Dark mode toggle button */
+#darkToggle { transition:all .2s ease; }
+#darkToggle:hover { transform:rotate(20deg) scale(1.1); }
+
+/* Card glow on hover */
+.stat-card { transition:box-shadow .2s ease, border-color .2s ease, transform .15s ease; }
+.stat-card:hover { box-shadow:0 0 0 1px rgba(245,158,11,.2), 0 4px 24px rgba(245,158,11,.06); transform:translateY(-1px); }
+
+/* Improved scrollbar */
+::-webkit-scrollbar { width:5px; height:5px }
+::-webkit-scrollbar-thumb { background:#3f3f46; border-radius:4px; }
+::-webkit-scrollbar-thumb:hover { background:#52525b; }
+
+/* ══ LIGHT MODE ══ */
+html:not(.dark) { color-scheme: light; }
+html:not(.dark) body { background:#f0f4f8!important; color:#111827!important; }
+html:not(.dark) #lockScreen { background:#f0f4f8!important; }
+html:not(.dark) .lock-card {
+  background:linear-gradient(#ffffff,#ffffff) padding-box,
+             linear-gradient(135deg,rgba(245,158,11,.5),rgba(16,185,129,.4),rgba(245,158,11,.5)) border-box!important;
+}
+html:not(.dark) header { background:#ffffff!important; border-color:#e2e8f0!important; box-shadow:0 1px 3px rgba(0,0,0,.06)!important; }
+html:not(.dark) aside { background:#f8fafc!important; border-color:#e2e8f0!important; }
+html:not(.dark) .bg-zinc-950 { background:#f0f4f8!important; }
+html:not(.dark) .bg-zinc-950\/30 { background:rgba(240,244,248,.6)!important; }
+html:not(.dark) .bg-zinc-900 { background:#ffffff!important; }
+html:not(.dark) .bg-zinc-900\/30 { background:rgba(248,250,252,.9)!important; }
+html:not(.dark) .bg-zinc-900\/50 { background:rgba(255,255,255,.95)!important; }
+html:not(.dark) .bg-zinc-800 { background:#e8edf2!important; }
+html:not(.dark) .hover\:bg-zinc-700:hover { background:#dde3ea!important; }
+html:not(.dark) .hover\:bg-zinc-800:hover { background:#e8edf2!important; }
+html:not(.dark) .border-zinc-800 { border-color:#dde3ea!important; }
+html:not(.dark) .border-zinc-800\/50 { border-color:rgba(221,227,234,.6)!important; }
+html:not(.dark) .border-zinc-800\/60 { border-color:rgba(221,227,234,.8)!important; }
+html:not(.dark) .border-zinc-800\/70 { border-color:rgba(221,227,234,.9)!important; }
+html:not(.dark) .divide-zinc-800\/50>*+* { border-color:rgba(221,227,234,.7)!important; }
+html:not(.dark) .text-zinc-100 { color:#0f172a!important; }
+html:not(.dark) .text-zinc-200 { color:#1e293b!important; }
+html:not(.dark) .text-zinc-300 { color:#334155!important; }
+html:not(.dark) .text-zinc-400 { color:#475569!important; }
+html:not(.dark) .text-zinc-500 { color:#64748b!important; }
+html:not(.dark) .text-zinc-600 { color:#475569!important; }
+html:not(.dark) .text-zinc-700 { color:#64748b!important; }
+html:not(.dark) .text-white    { color:#0f172a!important; }
+html:not(.dark) textarea { background:#f8fafc!important; color:#0f172a!important; border-color:#dde3ea!important; }
+html:not(.dark) input[type="password"], html:not(.dark) input[type="text"] { background:#f8fafc!important; color:#0f172a!important; }
+html:not(.dark) input::placeholder, html:not(.dark) textarea::placeholder { color:#94a3b8!important; }
+html:not(.dark) .key-idle { border-color:#dde3ea!important; }
+html:not(.dark) .result-row:hover { background:rgba(245,158,11,.04)!important; }
+html:not(.dark) .tab-active { background:linear-gradient(180deg,rgba(245,158,11,.1),transparent)!important; }
+html:not(.dark) ::-webkit-scrollbar-thumb { background:#c8d2dc!important; }
+html:not(.dark) ::-webkit-scrollbar-thumb:hover { background:#b0bbc8!important; }
 </style>
 </head>
 <body class="bg-zinc-950 text-zinc-100 font-sans antialiased overflow-hidden h-screen">
@@ -179,6 +248,15 @@ tailwind.config = {
         Saved
       </div>
       <span class="text-zinc-500 text-[11px] font-mono" id="keyDisplay"></span>
+      <button id="darkToggle" onclick="toggleDarkMode()" title="Toggle light/dark mode"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-all">
+        <svg id="iconMoon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+        <svg id="iconSun" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="5" stroke-width="2"/><line x1="12" y1="1" x2="12" y2="3" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke-width="2" stroke-linecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke-width="2" stroke-linecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke-width="2" stroke-linecap="round"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke-width="2" stroke-linecap="round"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
       <button onclick="logout()" class="text-[11px] font-mono text-zinc-600 hover:text-zinc-400 transition-colors">logout</button>
     </div>
   </header>
@@ -225,19 +303,19 @@ tailwind.config = {
 
           <!-- Stats -->
           <div class="grid grid-cols-4 gap-3">
-            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div class="stat-card bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <p class="text-2xl font-extrabold font-mono text-amber-400" id="statDone">0</p>
               <p class="text-[11px] text-zinc-500 mt-0.5">Completed</p>
             </div>
-            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div class="stat-card bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <p class="text-2xl font-extrabold font-mono text-zinc-100" id="statTotal">36</p>
               <p class="text-[11px] text-zinc-500 mt-0.5">Selected</p>
             </div>
-            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div class="stat-card bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <p class="text-2xl font-extrabold font-mono text-emerald-400" id="statAvgScore">—</p>
               <p class="text-[11px] text-zinc-500 mt-0.5">Avg Score</p>
             </div>
-            <div class="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+            <div class="stat-card bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <p class="text-2xl font-extrabold font-mono text-blue-400" id="statAvgLatency">—</p>
               <p class="text-[11px] text-zinc-500 mt-0.5">Avg Latency</p>
             </div>
@@ -764,29 +842,34 @@ function renderSidebar() {
     const on = selectedModels.has(m.id);
     return `
     <button onclick="toggleModel('${m.id}')" id="model-btn-${m.id}"
-      class="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left
-             ${on ? 'bg-zinc-800/70' : 'opacity-40 hover:opacity-60'} hover:bg-zinc-800/60">
-      <!-- Toggle dot -->
-      <span class="w-3 h-3 rounded-full border-2 flex items-center justify-center shrink-0 transition-all"
-        style="border-color:${m.color};background:${on ? m.color : 'transparent'}">
-        ${on ? `<svg class="w-1.5 h-1.5 text-zinc-900" fill="currentColor" viewBox="0 0 8 8"><path d="M1 4l2 2 4-4"/></svg>` : ''}
+      class="w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-all text-left relative overflow-hidden"
+      style="${on
+        ? `background:linear-gradient(135deg,${m.color}22,${m.color}0a);border:1.5px solid ${m.color}44;box-shadow:0 2px 10px ${m.color}18`
+        : 'background:transparent;border:1.5px solid rgba(113,113,122,0.15);opacity:0.45'}">
+      <!-- Left accent bar -->
+      <span class="absolute left-0 top-2 bottom-2 w-[3px] rounded-full transition-all"
+        style="background:${on ? m.color : 'transparent'}"></span>
+      <!-- Checkmark dot -->
+      <span class="w-4 h-4 rounded-full flex items-center justify-center shrink-0 ml-1 transition-all"
+        style="background:${on ? m.color : 'rgba(113,113,122,0.2)'};box-shadow:${on ? `0 0 6px ${m.color}66` : 'none'}">
+        ${on ? `<svg class="w-2 h-2" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2.5"/></svg>` : ''}
       </span>
       <div class="min-w-0 flex-1">
-        <p class="text-[12px] font-medium truncate ${on ? 'text-zinc-200' : 'text-zinc-500'}">${m.name}</p>
-        <p class="text-[10px] text-zinc-600">${m.org}
-          <span class="ml-1 px-1 rounded text-[9px] font-mono font-semibold
-            ${m.type === 'open' ? 'text-emerald-400 bg-emerald-400/10' : 'text-amber-400 bg-amber-400/10'}">${m.type}</span>
-        </p>
+        <p class="text-[12px] font-bold truncate leading-tight" style="color:${on ? m.color : '#71717a'}">${m.name}</p>
+        <div class="flex items-center gap-1 mt-0.5">
+          <p class="text-[10px] font-semibold" style="color:${on ? m.color+'aa' : '#52525b'}">${m.org}</p>
+          ${m.free ? `<span style="color:#10b981;background:rgba(16,185,129,0.12);border:1px solid rgba(16,185,129,0.25);padding:0 4px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace">FREE</span>` : `<span style="color:#f59e0b;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2);padding:0 4px;border-radius:4px;font-size:9px;font-weight:700;font-family:monospace">PAID</span>`}
+        </div>
       </div>
-      <!-- Error/done status badge -->
+      <!-- Status badge -->
       <span id="model-status-${m.id}" class="shrink-0"></span>
     </button>`;
   }).join('');
 
   document.getElementById('techSidebar').innerHTML = TECH_DEFS.map(t => `
-    <div class="flex items-center gap-2 px-2 py-1.5 rounded-lg">
-      <span class="text-[15px] leading-none shrink-0" style="color:${t.color}">${t.icon}</span>
-      <span class="text-[12px] text-zinc-400 truncate">${t.name}</span>
+    <div class="flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg" style="background:${t.color}0d;border:1px solid ${t.color}22">
+      <span class="text-[14px] leading-none shrink-0">${t.icon}</span>
+      <span class="text-[11px] font-bold truncate" style="color:${t.color}cc">${t.name}</span>
     </div>`).join('');
 
   // Render "All / None" toggles above model list
@@ -1464,6 +1547,29 @@ function switchTab(id, btn) {
 }
 
 // ══════════════════════════════════════════════
+// DARK MODE TOGGLE
+// ══════════════════════════════════════════════
+function toggleDarkMode() {
+  const html = document.getElementById('htmlRoot');
+  const isDark = html.classList.toggle('dark');
+  localStorage.setItem('theme', isDark ? 'dark' : 'light');
+  document.getElementById('iconMoon').classList.toggle('hidden', !isDark);
+  document.getElementById('iconSun').classList.toggle('hidden', isDark);
+}
+
+function applyStoredTheme() {
+  const stored = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const useDark = stored ? stored === 'dark' : prefersDark;
+  const html = document.getElementById('htmlRoot');
+  html.classList.toggle('dark', useDark);
+  const moonEl = document.getElementById('iconMoon');
+  const sunEl  = document.getElementById('iconSun');
+  if (moonEl) moonEl.classList.toggle('hidden', !useDark);
+  if (sunEl)  sunEl.classList.toggle('hidden',  useDark);
+}
+
+// ══════════════════════════════════════════════
 // HELPERS
 // ══════════════════════════════════════════════
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
@@ -1472,6 +1578,8 @@ function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 // BOOT — runs on DOMContentLoaded
 // ══════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', async () => {
+
+  applyStoredTheme();
 
   // Wire up modal close and Enter key
   document.getElementById('modal').addEventListener('click', e => { if (e.target === document.getElementById('modal')) closeModal(); });
