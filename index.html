@@ -444,8 +444,8 @@ const MODELS = [
   { id:'gpt4o',   name:'GPT-4o',            org:'OpenAI',    type:'closed', free:false, model:'openai/gpt-4o',                                color:'#f59e0b' },
   { id:'claude',  name:'Claude 3.5 Sonnet', org:'Anthropic', type:'closed', free:false, model:'anthropic/claude-3.5-sonnet-20241022',          color:'#fb923c' },
   { id:'gemini',  name:'Gemini 2.5 Flash',    org:'Google',    type:'closed', free:false, model:'google/gemini-2.5-flash',                        color:'#3b82f6' },
-  { id:'llama',   name:'Step 3.5 Flash',      org:'StepFun',   type:'open',   free:true,  model:'stepfun/step-3.5-flash:free',                 color:'#10b981' },
-  { id:'mistral', name:'GPT-OSS 20B',       org:'OpenAI',    type:'open',   free:true,  model:'openai/gpt-oss-20b:free',                     color:'#8b5cf6' },
+  { id:'llama',   name:'LLaMA 3.3 70B',      org:'Meta',      type:'open',   free:true,  model:'meta-llama/llama-3.3-70b-instruct:free',      color:'#10b981' },
+  { id:'mistral', name:'Mistral Small 3.1',  org:'Mistral',   type:'open',   free:true,  model:'mistralai/mistral-small-3.1-24b-instruct:free', color:'#8b5cf6' },
   { id:'gemma',   name:'Gemma 3 4B',        org:'Google',    type:'open',   free:true,  model:'google/gemma-3-4b-it:free',  }
 ];
 // Default: all models selected
@@ -1067,7 +1067,7 @@ async function callAPI(modelId, techId) {
           temperature: 0.0,
           max_tokens : 1200,
           messages   : [{ role:'user', content:prompt }],
-          ...(m.free && { provider: { allow_fallbacks: true } }),
+          ...(m.free && { provider: { order: ['Groq', 'DeepInfra', 'Fireworks', 'Together'], allow_fallbacks: true } }),
         }),
       });
       data = await res.json();
